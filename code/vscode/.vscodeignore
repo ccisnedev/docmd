@@ -7,4 +7,6 @@ tsconfig.json
 **/*.ts
 **/*.map
 .gitignore
+.env
+.env*
 .pat-expires

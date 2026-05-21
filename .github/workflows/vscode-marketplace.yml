@@ -1,0 +1,108 @@
+name: VS Code Marketplace
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'code/vscode/**'
+      - '.github/workflows/vscode-marketplace.yml'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      extension_id: ${{ steps.local.outputs.extension_id }}
+      local_version: ${{ steps.local.outputs.version }}
+      should_publish: ${{ steps.compare.outputs.should_publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Read local package metadata
+        id: local
+        run: |
+          publisher=$(node -p "require('./code/vscode/package.json').publisher")
+          name=$(node -p "require('./code/vscode/package.json').name")
+          version=$(node -p "require('./code/vscode/package.json').version")
+          echo "publisher=$publisher" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "extension_id=$publisher.$name" >> "$GITHUB_OUTPUT"
+
+      - name: Query Marketplace version
+        id: marketplace
+        run: |
+          extension_id="${{ steps.local.outputs.extension_id }}"
+          set +e
+          output=$(npx @vscode/vsce show "$extension_id" 2>&1)
+          exit_code=$?
+          set -e
+          if [ $exit_code -ne 0 ]; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "Extension not found on Marketplace. Treating as first publish."
+          else
+            marketplace_version=$(echo "$output" | awk -F: '/^[[:space:]]*Version:/ {gsub(/[[:space:]]*/, "", $2); print $2; exit}')
+            echo "version=$marketplace_version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare versions
+        id: compare
+        run: |
+          local_version="${{ steps.local.outputs.version }}"
+          marketplace_version="${{ steps.marketplace.outputs.version }}"
+          if [ -z "$marketplace_version" ] || [ "$local_version" != "$marketplace_version" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Version changed: $marketplace_version -> $local_version"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged: $local_version"
+          fi
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: code/vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm test
+
+  publish:
+    needs: [check-version, test]
+    if: needs.check-version.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code/vscode
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+
+      - name: Check PAT expiration
+        run: |
+          expires=$(cat .pat-expires | tr -d '[:space:]')
+          today=$(date -u +%Y-%m-%d)
+          if [[ "$today" > "$expires" || "$today" == "$expires" ]]; then
+            echo "::error::VSCE PAT expired on $expires. Rotate the token."
+            exit 1
+          fi
+
+      - run: npm run compile
+
+      - name: Publish to Marketplace
+        run: npx @vscode/vsce publish --no-dependencies
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

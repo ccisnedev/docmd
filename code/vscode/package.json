@@ -1,0 +1,95 @@
+{
+  "name": "docmd-vscode",
+  "displayName": "DocMD",
+  "description": "VS Code frontend for the DocMD CLI and Markdown-first document packages.",
+  "version": "0.0.1",
+  "publisher": "ccisnedev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ccisnedev/docmd.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ccisnedev/docmd/issues"
+  },
+  "homepage": "https://docmd.ccisne.dev/",
+  "keywords": [
+    "docmd",
+    "markdown",
+    "docx",
+    "documents",
+    "office",
+    "ai"
+  ],
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "docmd.doctor",
+        "title": "DocMD: Run Doctor",
+        "category": "DocMD"
+      },
+      {
+        "command": "docmd.importFile",
+        "title": "DocMD: Import File",
+        "category": "DocMD"
+      },
+      {
+        "command": "docmd.installCli",
+        "title": "DocMD: Install CLI",
+        "category": "DocMD"
+      },
+      {
+        "command": "docmd.openDocumentEditor",
+        "title": "DocMD: Open Document Editor",
+        "category": "DocMD"
+      },
+      {
+        "command": "docmd.renderFile",
+        "title": "DocMD: Render File",
+        "category": "DocMD"
+      },
+      {
+        "command": "docmd.showOutput",
+        "title": "DocMD: Show Output",
+        "category": "DocMD"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "docmd.openDocumentEditor",
+          "when": "explorerResourceIsFolder && resourceExtname == .docmd",
+          "group": "navigation"
+        },
+        {
+          "command": "docmd.openDocumentEditor",
+          "when": "!explorerResourceIsFolder && resourceFilename == document.md",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test"
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0",
+    "node-html-markdown": "^1.3.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.15.21",
+    "@types/vscode": "^1.96.0",
+    "typescript": "^5.8.3"
+  }
+}

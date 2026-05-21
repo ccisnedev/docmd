@@ -1,0 +1,29 @@
+# Normalize line endings across platforms.
+# https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings
+* text=auto eol=lf
+
+# Explicitly declare text files
+*.md text
+*.txt text
+*.yaml text
+*.yml text
+*.json text
+*.dart text
+*.ts text
+*.js text
+*.html text
+*.css text
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Declare binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar.gz binary
+*.pdf binary

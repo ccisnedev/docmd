@@ -1,0 +1,25 @@
+import 'package:modular_cli_sdk/modular_cli_sdk.dart';
+
+import 'commands/doctor.dart';
+import 'commands/tui.dart';
+import 'commands/version.dart';
+
+void buildGlobalModule(ModuleBuilder m) {
+  m.command<TuiInput, TuiOutput>(
+    '',
+    (req) => TuiCommand(TuiInput.fromCliRequest(req)),
+    description: 'Display DocMD summary and available workflows',
+  );
+
+  m.command<VersionInput, VersionOutput>(
+    'version',
+    (req) => VersionCommand(VersionInput.fromCliRequest(req)),
+    description: 'Print the current DocMD CLI version',
+  );
+
+  m.command<DoctorInput, DoctorOutput>(
+    'doctor',
+    (req) => DoctorCommand(DoctorInput.fromCliRequest(req)),
+    description: 'Verify local prerequisites such as Pandoc and LibreOffice',
+  );
+}

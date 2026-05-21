@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'code/cli/**'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from pubspec.yaml
+        id: read
+        run: |
+          version=$(grep -E '^version:' code/cli/pubspec.yaml | sed -E 's/^version:\s*//' | tr -d '[:space:]')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version in pubspec: $version"
+
+      - name: Check if tag already exists
+        id: check
+        run: |
+          tag="v${{ steps.read.outputs.version }}"
+          if git ls-remote --tags --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $tag already exists on remote. Skipping release."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $tag not found. Proceeding with release."
+          fi
+
+  create-release:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create git tag
+        run: |
+          tag="v${{ needs.check-version.outputs.version }}"
+          git tag "$tag"
+          git push origin "$tag"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ needs.check-version.outputs.version }}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --generate-notes \
+            --latest
+
+  build:
+    needs: [check-version, create-release]
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            asset: docmd-windows-x64.zip
+          - os: ubuntu-latest
+            asset: docmd-linux-x64.tar.gz
+    defaults:
+      run:
+        working-directory: code/cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exclude toolcache from Windows Defender
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "C:\hostedtoolcache" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "D:\a" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "dart.exe" -ErrorAction SilentlyContinue
+          $dartCache = "C:\hostedtoolcache\windows\dart"
+          if (Test-Path $dartCache) {
+            Remove-Item -Recurse -Force $dartCache
+          }
+
+      - uses: dart-lang/setup-dart@v1
+
+      - run: dart pub get
+      - run: dart analyze
+      - run: dart test
+
+      - name: Clean dart cache to force re-download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dartCache = "C:\hostedtoolcache\windows\dart"
+          if (Test-Path $dartCache) {
+            Remove-Item -Recurse -Force $dartCache
+          }
+          $dartZip = "D:\a\_temp\dartsdk-windows-x64-release.zip"
+          if (Test-Path $dartZip) {
+            Remove-Item -Force $dartZip
+          }
+
+      - name: Re-setup Dart before compile
+        if: runner.os == 'Windows'
+        uses: dart-lang/setup-dart@v1
+
+      - name: Build CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\scripts\build.ps1
+
+      - name: Build CLI (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/build.sh
+
+      - name: Package release asset (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path build\* -DestinationPath ${{ matrix.asset }}
+
+      - name: Package release asset (Linux)
+        if: runner.os == 'Linux'
+        run: tar czf ${{ matrix.asset }} -C build .
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "v${{ needs.check-version.outputs.version }}" ${{ matrix.asset }} --clobber
+        shell: bash

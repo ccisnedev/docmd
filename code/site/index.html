@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocMD</title>
+  <meta
+    name="description"
+    content="Markdown-first document workflows for VS Code, automation, and AI-assisted editing."
+  />
+  <link rel="stylesheet" href="css/landing.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Markdown-first document engine</p>
+        <h1>Import office files, edit the canonical package, export again.</h1>
+        <p class="lede">
+          DocMD turns .docx workflows into readable packages that VS Code and AI can inspect,
+          edit, review, and render without treating a binary file as the source of truth.
+        </p>
+        <div class="cta-row">
+          <a class="button button-primary" href="https://github.com/ccisnedev/docmd">GitHub</a>
+          <a class="button button-secondary" href="https://github.com/ccisnedev/docmd/releases">Latest Releases</a>
+          <a class="button button-secondary" href="https://marketplace.visualstudio.com/items?itemName=ccisnedev.docmd-vscode">VS Code Extension</a>
+        </div>
+      </div>
+      <aside class="hero-panel">
+        <p class="panel-label">VS Code flow</p>
+        <ol>
+          <li>Install the DocMD extension.</li>
+          <li>Run DocMD: Import File or DocMD: Install CLI.</li>
+          <li>Accept the CLI install prompt if the runtime is missing.</li>
+          <li>Edit the generated package and export back to DOCX or PDF.</li>
+        </ol>
+      </aside>
+    </header>
+
+    <main>
+      <section class="section-grid">
+        <article class="card">
+          <p class="card-kicker">Windows CLI</p>
+          <h2>Install from the public site</h2>
+          <pre><code>irm https://docmd.ccisne.dev/install.ps1 | iex</code></pre>
+        </article>
+
+        <article class="card">
+          <p class="card-kicker">Linux CLI</p>
+          <h2>Install from the public site</h2>
+          <pre><code>curl -fsSL https://docmd.ccisne.dev/install.sh | bash</code></pre>
+        </article>
+
+        <article class="card">
+          <p class="card-kicker">Canonical model</p>
+          <h2>The editable truth is a package</h2>
+          <pre><code>proposal.docmd/
+  manifest.yaml
+  content/document.md
+  assets/
+  exports/</code></pre>
+        </article>
+      </section>
+
+      <section class="section-slab">
+        <div>
+          <p class="eyebrow">Why DocMD exists</p>
+          <h2>Documents should behave like code artifacts.</h2>
+        </div>
+        <div class="three-up">
+          <article>
+            <h3>Readable by humans</h3>
+            <p>Review the document structure in Markdown instead of diffing a binary blob.</p>
+          </article>
+          <article>
+            <h3>Readable by AI</h3>
+            <p>Agents can inspect sections, tables, and assets directly without opaque preprocessing.</p>
+          </article>
+          <article>
+            <h3>Renderable outward</h3>
+            <p>Non-technical stakeholders still receive DOCX and PDF exports when the workflow is done.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-grid section-grid-wide">
+        <article class="card">
+          <p class="card-kicker">Architecture</p>
+          <h2>CLI-first runtime, VS Code-first experience</h2>
+          <p>
+            The extension is a frontend over the DocMD CLI. Import, doctor, and render all flow
+            through the same local runtime so automation and editor UX stay aligned.
+          </p>
+        </article>
+
+        <article class="card">
+          <p class="card-kicker">Release channel</p>
+          <h2>GitHub Releases feed both the CLI and the extension installer</h2>
+          <p>
+            The VS Code extension downloads the latest DocMD CLI release directly and installs it
+            into a managed user directory instead of invoking an external install script.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>DocMD is open source and built in public on GitHub.</p>
+      <a href="https://github.com/ccisnedev/docmd">github.com/ccisnedev/docmd</a>
+    </footer>
+  </div>
+</body>
+</html>

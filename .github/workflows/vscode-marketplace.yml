@@ -1,6 +1,7 @@
 name: VS Code Marketplace
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

@@ -4,6 +4,7 @@
   "description": "VS Code frontend for the DocMD CLI and Markdown-first document packages.",
   "version": "0.0.1",
   "publisher": "ccisnedev",
+  "icon": "assets/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",

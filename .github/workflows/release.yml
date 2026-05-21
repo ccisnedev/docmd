@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'code/cli/**'
+      - 'code/cli/pubspec.yaml'
       - '.github/workflows/release.yml'
 
 permissions:

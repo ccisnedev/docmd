@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'code/vscode/**'
+      - 'code/vscode/package.json'
       - '.github/workflows/vscode-marketplace.yml'
 
 jobs:
@@ -91,7 +91,18 @@ jobs:
           node-version: 20
       - run: npm ci
 
+      - name: Check publish secret
+        id: secret
+        run: |
+          if [ -z "${{ secrets.VSCE_PAT }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "VSCE_PAT is not configured for this repository. Skipping Marketplace publish."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check PAT expiration
+        if: steps.secret.outputs.configured == 'true'
         run: |
           expires=$(cat .pat-expires | tr -d '[:space:]')
           today=$(date -u +%Y-%m-%d)
@@ -100,9 +111,11 @@ jobs:
             exit 1
           fi
 
-      - run: npm run compile
+      - if: steps.secret.outputs.configured == 'true'
+        run: npm run compile
 
       - name: Publish to Marketplace
+        if: steps.secret.outputs.configured == 'true'
         run: npx @vscode/vsce publish --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}

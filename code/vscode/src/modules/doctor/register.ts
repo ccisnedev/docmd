@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import type { ExtensionServices } from '../../core/services';
-import { withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
+import { ensureDocmdCliAvailable, withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
 import { presentCommandError } from '../../shared/errors';
 import { getPreferredWorkingDirectory } from '../../shared/workspace';
 
@@ -11,6 +11,10 @@ export function registerDoctorModule(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('docmd.doctor', async () => {
+      if (!(await ensureDocmdCliAvailable(services))) {
+        return;
+      }
+
       services.logger.show();
 
       try {

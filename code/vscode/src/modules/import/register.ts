@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import * as vscode from 'vscode';
 
 import type { ExtensionServices } from '../../core/services';
-import { withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
+import { ensureDocmdCliAvailable, withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
 import type { DocmdImportOptions } from '../../infrastructure/docmd/docmdCli';
 import { presentCommandError } from '../../shared/errors';
 import { inferDocmdPackagePathForImport } from '../../shared/canonicalPath';
@@ -14,6 +14,10 @@ export function registerImportModule(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('docmd.importFile', async () => {
+      if (!(await ensureDocmdCliAvailable(services))) {
+        return;
+      }
+
       const selection = await vscode.window.showOpenDialog({
         canSelectMany: false,
         canSelectFiles: true,

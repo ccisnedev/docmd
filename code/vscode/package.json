@@ -2,7 +2,7 @@
   "name": "docmd-vscode",
   "displayName": "DocMD",
   "description": "VS Code frontend for the DocMD CLI and Markdown-first document packages.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "ccisnedev",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -33,32 +33,32 @@
     "commands": [
       {
         "command": "docmd.doctor",
-        "title": "DocMD: Run Doctor",
+        "title": "Run Doctor",
         "category": "DocMD"
       },
       {
         "command": "docmd.importFile",
-        "title": "DocMD: Import File",
+        "title": "Import File",
         "category": "DocMD"
       },
       {
         "command": "docmd.installCli",
-        "title": "DocMD: Install CLI",
+        "title": "Install CLI",
         "category": "DocMD"
       },
       {
         "command": "docmd.openDocumentEditor",
-        "title": "DocMD: Open Document Editor",
+        "title": "Open Document Editor",
         "category": "DocMD"
       },
       {
         "command": "docmd.renderFile",
-        "title": "DocMD: Render File",
+        "title": "Render File",
         "category": "DocMD"
       },
       {
         "command": "docmd.showOutput",
-        "title": "DocMD: Show Output",
+        "title": "Show Output",
         "category": "DocMD"
       }
     ],

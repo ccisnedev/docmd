@@ -26,3 +26,21 @@ test('VSIX packaging keeps runtime dependencies available at activation time', (
     'The VSIX excludes node_modules even though the extension has runtime dependencies. This breaks activation in the published package.',
   );
 });
+
+test('command titles do not duplicate the DocMD category prefix', () => {
+  const packageJsonPath = path.resolve(__dirname, '../package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  const commands = packageJson.contributes?.commands ?? [];
+
+  for (const command of commands) {
+    if (!command.category || !command.title) {
+      continue;
+    }
+
+    assert.equal(
+      command.title.startsWith(`${command.category}: `),
+      false,
+      `Command ${command.command} duplicates its category prefix in the title.`,
+    );
+  }
+});

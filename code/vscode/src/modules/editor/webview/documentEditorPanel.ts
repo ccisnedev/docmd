@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { ExtensionServices } from '../../../core/services';
-import { withDocmdCli } from '../../../infrastructure/docmd/docmdCommandGuard';
+import { ensureDocmdCliAvailable, withDocmdCli } from '../../../infrastructure/docmd/docmdCommandGuard';
 import { presentCommandError } from '../../../shared/errors';
 import { resolveRenderInputPath } from '../../../shared/workspace';
 import { markdownFromDocumentHtml, renderMarkdownDocument } from '../documentCodec';
@@ -77,6 +77,10 @@ export class DocumentEditorPanel {
         await vscode.window.showTextDocument(vscode.Uri.file(this.canonicalDocumentPath));
         return;
       case 'export':
+        if (!(await ensureDocmdCliAvailable(this.services))) {
+          return;
+        }
+
         await this.saveDocumentHtml(message.documentHtml);
         await this.exportDocument(message.format);
         return;

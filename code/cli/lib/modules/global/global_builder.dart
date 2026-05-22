@@ -2,6 +2,7 @@ import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 
 import 'commands/doctor.dart';
 import 'commands/tui.dart';
+import 'commands/uninstall.dart';
 import 'commands/version.dart';
 
 void buildGlobalModule(ModuleBuilder m) {
@@ -21,5 +22,11 @@ void buildGlobalModule(ModuleBuilder m) {
     'doctor',
     (req) => DoctorCommand(DoctorInput.fromCliRequest(req)),
     description: 'Verify local prerequisites such as Pandoc and LibreOffice',
+  );
+
+  m.command<UninstallInput, UninstallOutput>(
+    'uninstall',
+    (req) => UninstallCommand(UninstallInput.fromCliRequest(req)),
+    description: 'Remove the managed DocMD CLI installation from this machine',
   );
 }

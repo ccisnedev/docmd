@@ -4,7 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { toCanonicalDocumentPath } = require('../out/shared/canonicalPath.js');
+const {
+  inferDocmdPackagePathForImport,
+  toCanonicalDocumentPath,
+} = require('../out/shared/canonicalPath.js');
 
 test('toCanonicalDocumentPath resolves an existing DocMD package folder', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'docmd-workspace-package-'));
@@ -44,6 +47,22 @@ test('toCanonicalDocumentPath ignores binary office files', () => {
     fs.writeFileSync(docxPath, 'binary');
 
     assert.equal(toCanonicalDocumentPath(docxPath), undefined);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('inferDocmdPackagePathForImport targets the selected output directory', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'docmd-workspace-import-'));
+
+  try {
+    const inputPath = path.join(tempDir, 'incoming', 'sample.docx');
+    const outputDir = path.join(tempDir, 'imports');
+
+    assert.equal(
+      inferDocmdPackagePathForImport(inputPath, outputDir),
+      path.join(outputDir, 'sample.docmd'),
+    );
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

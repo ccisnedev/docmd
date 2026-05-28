@@ -80,7 +80,7 @@ void main() {
               File(args[outputIndex + 1])
                 ..createSync(recursive: true)
                 ..writeAsStringSync('temp docx');
-            } else if (exe == 'soffice' || exe == 'soffice.exe') {
+            } else if (p.basename(exe) == 'soffice' || p.basename(exe) == 'soffice.exe') {
               final inputDocx = args[3];
               final outdir = args[5];
               File(p.join(outdir, '${p.basenameWithoutExtension(inputDocx)}.pdf'))
@@ -95,7 +95,7 @@ void main() {
         final output = await cmd.execute();
 
         expect(calls, contains('pandoc'));
-        expect(calls.any((value) => value == 'soffice' || value == 'soffice.exe'), isTrue);
+        expect(calls.any((value) => p.basename(value) == 'soffice' || p.basename(value) == 'soffice.exe'), isTrue);
         expect(output.outputPath, endsWith('requirement.pdf'));
         expect(output.sourceMarkdownPath, endsWith('content${p.separator}document.md'));
         expect(File(output.outputPath).existsSync(), isTrue);

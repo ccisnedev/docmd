@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../src/package_layout.dart';
 import '../../../src/process_runner.dart';
+import '../../../src/tool_locator.dart';
 
 class RenderInput extends Input {
   final String inputPath;
@@ -195,7 +196,8 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
       final outputDir = p.dirname(outputPath);
       Directory(outputDir).createSync(recursive: true);
 
-      final sofficeExecutable = Platform.isWindows ? 'soffice.exe' : 'soffice';
+      final sofficeExecutable = resolveLibreOfficeExecutable() ??
+          (Platform.isWindows ? 'soffice.exe' : 'soffice');
       final result = await _runProcess(sofficeExecutable, [
         '--headless',
         '--convert-to',

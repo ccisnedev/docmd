@@ -3,6 +3,7 @@ import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'commands/doctor.dart';
 import 'commands/tui.dart';
 import 'commands/uninstall.dart';
+import 'commands/upgrade.dart';
 import 'commands/version.dart';
 
 void buildGlobalModule(ModuleBuilder m) {
@@ -22,6 +23,12 @@ void buildGlobalModule(ModuleBuilder m) {
     'doctor',
     (req) => DoctorCommand(DoctorInput.fromCliRequest(req)),
     description: 'Verify local prerequisites such as Pandoc and LibreOffice',
+  );
+
+  m.command<UpgradeInput, UpgradeOutput>(
+    'upgrade',
+    (req) => UpgradeCommand(UpgradeInput.fromCliRequest(req)),
+    description: 'Download and install the latest DocMD release',
   );
 
   m.command<UninstallInput, UninstallOutput>(

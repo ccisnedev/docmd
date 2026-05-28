@@ -14,7 +14,7 @@ void main() {
           programFilesX86: r'C:\Program Files (x86)',
           fileExists: (path) =>
               path == r'C:\Program Files\LibreOffice\program\soffice.exe',
-          runSync: (_, __) => ProcessResult(0, 1, '', ''),
+          runSync: (_, _) => ProcessResult(0, 1, '', ''),
         ),
       );
 
@@ -29,7 +29,7 @@ void main() {
         deps: ToolLocatorDeps(
           platform: 'linux',
           fileExists: (path) => path == '/usr/bin/pandoc',
-          runSync: (_, __) => ProcessResult(0, 0, '/usr/bin/pandoc\n', ''),
+          runSync: (_, _) => ProcessResult(0, 0, '/usr/bin/pandoc\n', ''),
         ),
       );
 
@@ -41,7 +41,7 @@ void main() {
         deps: ToolLocatorDeps(
           platform: 'linux',
           fileExists: (_) => false,
-          runSync: (_, __) => ProcessResult(0, 1, '', ''),
+          runSync: (_, _) => ProcessResult(0, 1, '', ''),
         ),
       );
 

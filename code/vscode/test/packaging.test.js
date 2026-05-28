@@ -75,7 +75,7 @@ test('launch.json provides a managed-cli debug configuration', () => {
   );
 });
 
-test('package.json declares explicit activation events for debug and command flows', () => {
+test('package.json keeps only the non-redundant explicit activation event', () => {
   const packageJsonPath = path.resolve(__dirname, '../package.json');
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
   const activationEvents = packageJson.activationEvents ?? [];
@@ -93,9 +93,10 @@ test('package.json declares explicit activation events for debug and command flo
     'docmd.renderFile',
     'docmd.showOutput',
   ]) {
-    assert.ok(
+    assert.equal(
       activationEvents.includes(`onCommand:${commandId}`),
-      `Missing explicit activation event for ${commandId}.`,
+      false,
+      `Redundant explicit activation event declared for ${commandId}. VS Code generates it automatically from contributes.commands.`,
     );
   }
 });

@@ -109,8 +109,8 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
         'libreoffice': libreOfficePath != null,
       },
       paths: {
-        if (pandocPath != null) 'pandoc': pandocPath,
-        if (libreOfficePath != null) 'libreoffice': libreOfficePath,
+        ...?(pandocPath == null ? null : {'pandoc': pandocPath}),
+        ...?(libreOfficePath == null ? null : {'libreoffice': libreOfficePath}),
       },
       currentVersion: docmdVersion,
       latestVersion: versionResult.latestVersion,

@@ -14,7 +14,7 @@ void main() {
           platform: 'linux',
           homeDirectory: '/home/test',
           directoryExists: (_) => false,
-          fetchJson: (_, __) async {
+          fetchJson: (_, _) async {
             fetched = true;
             return {};
           },
@@ -35,7 +35,7 @@ void main() {
           platform: 'linux',
           homeDirectory: '/home/test',
           directoryExists: (_) => true,
-          fetchJson: (_, __) async => {
+          fetchJson: (_, _) async => {
             'tag_name': 'v$docmdVersion',
             'assets': <Map<String, dynamic>>[],
           },
@@ -65,7 +65,7 @@ void main() {
           platform: 'linux',
           homeDirectory: '/home/test',
           directoryExists: (path) => path == '/home/test/.docmd',
-          fetchJson: (_, __) async => {
+          fetchJson: (_, _) async => {
             'tag_name': 'v0.0.4',
             'assets': [
               {

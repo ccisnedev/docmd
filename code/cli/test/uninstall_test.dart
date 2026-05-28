@@ -46,7 +46,7 @@ void main() {
           fileExists: (targetPath) => targetPath == '/home/test/.local/bin/docmd',
           deleteDirectory: deletedDirectories.add,
           deleteFile: deletedFiles.add,
-          scheduleWindowsRemoval: (_, __) async {
+          scheduleWindowsRemoval: (_, _) async {
             fail('Windows uninstall should not run on Linux');
           },
         ),

@@ -31,14 +31,19 @@ export function registerDoctorModule(
         const missing = Object.entries(result.checks)
           .filter(([, passed]) => !passed)
           .map(([name]) => name);
+        const updateMessage = result.updateAvailable && result.latestVersion
+          ? ` Update available: ${result.latestVersion}.`
+          : '';
 
         if (missing.length == 0) {
-          await vscode.window.showInformationMessage('DocMD doctor completed: all checks passed.');
+          await vscode.window.showInformationMessage(
+            `DocMD doctor completed: all checks passed.${updateMessage}`,
+          );
           return;
         }
 
         await vscode.window.showWarningMessage(
-          `DocMD doctor completed with missing tools: ${missing.join(', ')}`,
+          `DocMD doctor completed with missing tools: ${missing.join(', ')}.${updateMessage}`,
         );
       } catch (error) {
         await presentCommandError('DocMD doctor failed', error, services.logger);

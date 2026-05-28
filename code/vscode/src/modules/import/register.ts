@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -33,7 +34,20 @@ export function registerImportModule(
       }
 
       const sourcePath = selection[0].fsPath;
-      const importOptions = await resolveImportOptions(sourcePath);
+      const destination = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        canSelectFiles: false,
+        canSelectFolders: true,
+        defaultUri: vscode.Uri.file(path.dirname(sourcePath)),
+        openLabel: 'Create DocMD package here',
+      });
+
+      if (!destination?.length) {
+        return;
+      }
+
+      const outputDir = destination[0].fsPath;
+      const importOptions = await resolveImportOptions(sourcePath, outputDir);
       if (!importOptions) {
         return;
       }
@@ -78,14 +92,17 @@ interface ImportResolution extends DocmdImportOptions {
   openExistingPackagePath?: string;
 }
 
-async function resolveImportOptions(sourcePath: string): Promise<ImportResolution | undefined> {
-  const packagePath = inferDocmdPackagePathForImport(sourcePath);
+async function resolveImportOptions(
+  sourcePath: string,
+  outputDir: string,
+): Promise<ImportResolution | undefined> {
+  const packagePath = inferDocmdPackagePathForImport(sourcePath, outputDir);
   if (!existsSync(packagePath)) {
-    return {};
+    return { outputDir };
   }
 
   const action = await vscode.window.showWarningMessage(
-    `A DocMD package already exists for ${sourcePath}.`,
+    `A DocMD package already exists at the selected destination for ${sourcePath}.`,
     {
       modal: true,
       detail: packagePath,
@@ -100,12 +117,12 @@ async function resolveImportOptions(sourcePath: string): Promise<ImportResolutio
   }
 
   if (action === 'Open Existing') {
-    return { openExistingPackagePath: packagePath };
+    return { outputDir, openExistingPackagePath: packagePath };
   }
 
   if (action === 'Overwrite') {
-    return { overwrite: true };
+    return { outputDir, overwrite: true };
   }
 
-  return { suffix: true };
+  return { outputDir, suffix: true };
 }

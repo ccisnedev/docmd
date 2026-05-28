@@ -9,11 +9,17 @@ class DocmdPackageLayout {
 
   DocmdPackageLayout(this.rootPath);
 
-  factory DocmdPackageLayout.forImportedFile(String inputPath) {
+  factory DocmdPackageLayout.forImportedFile(
+    String inputPath, {
+    String? outputDir,
+  }) {
     final source = File(inputPath).absolute;
+    final packageParentDir = outputDir == null
+        ? source.parent.path
+        : p.absolute(outputDir);
     return DocmdPackageLayout(
       p.join(
-        source.parent.path,
+        packageParentDir,
         '${p.basenameWithoutExtension(source.path)}.docmd',
       ),
     );

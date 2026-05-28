@@ -24,10 +24,14 @@ export function toCanonicalDocumentPath(inputPath?: string): string | undefined 
   return undefined;
 }
 
-export function inferDocmdPackagePathForImport(inputPath: string): string {
+export function inferDocmdPackagePathForImport(inputPath: string, outputDir?: string): string {
   const absoluteInputPath = path.resolve(inputPath);
+  const packageParentDir = outputDir
+    ? path.resolve(outputDir)
+    : path.dirname(absoluteInputPath);
+
   return path.join(
-    path.dirname(absoluteInputPath),
+    packageParentDir,
     `${path.parse(absoluteInputPath).name}.docmd`,
   );
 }

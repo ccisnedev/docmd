@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 
+import { splitLogLines } from './logLines';
+
 export class OutputChannelLogger {
   readonly channel: vscode.OutputChannel;
 
@@ -8,14 +10,20 @@ export class OutputChannelLogger {
   }
 
   info(message: string): void {
-    this.channel.appendLine(`[info] ${message}`);
+    this.appendMultiline('[info]', message);
   }
 
   error(message: string): void {
-    this.channel.appendLine(`[error] ${message}`);
+    this.appendMultiline('[error]', message);
   }
 
   show(): void {
     this.channel.show(true);
+  }
+
+  private appendMultiline(prefix: string, message: string): void {
+    for (const line of splitLogLines(message)) {
+      this.channel.appendLine(`${prefix} ${line}`);
+    }
   }
 }

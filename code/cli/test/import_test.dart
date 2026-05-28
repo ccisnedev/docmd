@@ -44,6 +44,32 @@ void main() {
       }
     });
 
+    test('execute() creates the package under the requested output directory', () async {
+      final dir = Directory.systemTemp.createTempSync('docmd_import_output_test_');
+      final outputDir = Directory(p.join(dir.path, 'imports'));
+      final file = File('${dir.path}/requirement.md')
+        ..writeAsStringSync('# Requirement');
+
+      try {
+        final cmd = ImportCommand(
+          ImportInput(inputPath: file.path, outputDir: outputDir.path),
+        );
+        final output = await cmd.execute();
+
+        expect(
+          output.packagePath,
+          equals(p.join(outputDir.path, 'requirement.docmd')),
+        );
+        expect(
+          File(p.join(output.packagePath, 'content', 'document.md'))
+              .readAsStringSync(),
+          equals('# Requirement'),
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
     test('execute() converts docx inputs through pandoc', () async {
       final dir = Directory.systemTemp.createTempSync('docmd_import_docx_test_');
       final file = File('${dir.path}/requirement.docx')..writeAsStringSync('stub');

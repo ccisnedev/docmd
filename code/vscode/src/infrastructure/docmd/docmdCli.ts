@@ -35,6 +35,7 @@ export interface DocmdImportResult {
 }
 
 export interface DocmdImportOptions extends DocmdRunOptions {
+  outputDir?: string;
   overwrite?: boolean;
   suffix?: boolean;
 }
@@ -49,6 +50,9 @@ export interface DocmdRenderResult {
 
 export interface DocmdDoctorResult {
   checks: Record<string, boolean>;
+  currentVersion?: string;
+  latestVersion?: string;
+  updateAvailable?: boolean;
 }
 
 export class DocmdCli {
@@ -66,6 +70,9 @@ export class DocmdCli {
     options: DocmdImportOptions = {},
   ): Promise<DocmdImportResult> {
     const args = ['import', inputPath];
+    if (options.outputDir) {
+      args.push('--output-dir', options.outputDir);
+    }
     if (options.overwrite) {
       args.push('--overwrite');
     }

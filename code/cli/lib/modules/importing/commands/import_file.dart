@@ -11,18 +11,23 @@ import '../../../src/process_runner.dart';
 
 class ImportInput extends Input {
   final String inputPath;
+  final String? outputDir;
   final bool overwrite;
   final bool suffix;
 
   ImportInput({
     required this.inputPath,
+    this.outputDir,
     this.overwrite = false,
     this.suffix = false,
   });
 
   factory ImportInput.fromCliRequest(CliRequest req) {
+    final outputDir = req.flagString('output-dir') ?? req.flagString('output');
+
     return ImportInput(
       inputPath: req.params['input'] ?? '',
+      outputDir: outputDir?.trim().isEmpty == true ? null : outputDir?.trim(),
       overwrite: req.flagBool('overwrite'),
       suffix: req.flagBool('suffix'),
     );
@@ -31,6 +36,7 @@ class ImportInput extends Input {
   @override
   Map<String, dynamic> toJson() => {
     'inputPath': inputPath,
+    'outputDir': outputDir,
     'overwrite': overwrite,
     'suffix': suffix,
   };
@@ -106,7 +112,14 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
       return 'Unsupported input format: $extension';
     }
 
-    final layout = DocmdPackageLayout.forImportedFile(source.path);
+    if (input.outputDir != null && File(input.outputDir!).existsSync()) {
+      return 'Output directory points to a file: ${input.outputDir}';
+    }
+
+    final layout = DocmdPackageLayout.forImportedFile(
+      source.path,
+      outputDir: input.outputDir,
+    );
     if (layout.exists && !input.overwrite && !input.suffix) {
       return 'Package already exists: ${layout.rootPath}. Use --overwrite to replace it or --suffix to create a copy.';
     }
@@ -151,7 +164,10 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
   }
 
   DocmdPackageLayout _resolveLayout(String sourcePath) {
-    final baseLayout = DocmdPackageLayout.forImportedFile(sourcePath);
+    final baseLayout = DocmdPackageLayout.forImportedFile(
+      sourcePath,
+      outputDir: input.outputDir,
+    );
     if (!input.suffix || !baseLayout.exists) {
       return baseLayout;
     }

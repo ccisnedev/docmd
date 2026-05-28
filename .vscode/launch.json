@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}\\code\\vscode"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/code/vscode/out/**/*.js"
+      ],
+      "preLaunchTask": "docmd-vscode: compile"
+    },
+    {
+      "name": "Run Extension (Managed CLI)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}\\code\\vscode"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/code/vscode/out/**/*.js"
+      ],
+      "env": {
+        "DOCMD_CLI_PATH": "${env:LOCALAPPDATA}\\docmd\\bin\\docmd.exe"
+      },
+      "preLaunchTask": "docmd-vscode: compile"
+    }
+  ]
+}

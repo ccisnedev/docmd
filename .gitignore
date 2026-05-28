@@ -7,6 +7,9 @@ build/
 # IDE
 .idea/
 .vscode/
+!.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
 *.iml
 
 # OS

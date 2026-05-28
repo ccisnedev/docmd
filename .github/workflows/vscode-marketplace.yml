@@ -117,6 +117,6 @@ jobs:
 
       - name: Publish to Marketplace
         if: steps.secret.outputs.configured == 'true'
-        run: npx @vscode/vsce publish --no-dependencies
+        run: npx @vscode/vsce publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}

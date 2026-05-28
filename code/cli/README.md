@@ -29,8 +29,11 @@ curl -fsSL https://docmd.ccisne.dev/install.sh | bash
 docmd
 docmd version
 docmd doctor
+docmd upgrade
+docmd uninstall
 docmd import <input>
 docmd render <input> [--pdf]
 ```
 
 `docmd render` defaults to `.docx` output.
+`docmd doctor` also checks whether a newer CLI release is available.

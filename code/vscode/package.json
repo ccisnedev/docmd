@@ -26,13 +26,7 @@
     "vscode": "^1.96.0"
   },
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:docmd.doctor",
-    "onCommand:docmd.importFile",
-    "onCommand:docmd.installCli",
-    "onCommand:docmd.openDocumentEditor",
-    "onCommand:docmd.renderFile",
-    "onCommand:docmd.showOutput"
+    "onStartupFinished"
   ],
   "categories": [
     "Other"

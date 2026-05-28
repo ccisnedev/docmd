@@ -39,7 +39,7 @@ void main() {
             'tag_name': 'v$docmdVersion',
             'assets': <Map<String, dynamic>>[],
           },
-          downloadFile: (_, __, ___) async {
+          downloadFile: (_, _, _) async {
             downloaded = true;
           },
         ),

@@ -66,7 +66,7 @@ void main() {
           homeDirectory: '/home/test',
           directoryExists: (path) => path == '/home/test/.docmd',
           fetchJson: (_, _) async => {
-            'tag_name': 'v0.0.4',
+            'tag_name': 'v0.0.5',
             'assets': [
               {
                 'name': 'docmd-linux-x64.tar.gz',
@@ -80,7 +80,7 @@ void main() {
           extractTarGz: (archivePath, destDir) async {
             extracted.add([archivePath, destDir]);
           },
-          execFile: (executable, arguments) async => '0.0.4',
+          execFile: (executable, arguments) async => '0.0.5',
           ensureDirectory: (path) async {
             createdDirectories.add(path);
           },
@@ -99,9 +99,9 @@ void main() {
 
       expect(output.status, equals('upgraded'));
       expect(output.upgraded, isTrue);
-      expect(output.newVersion, equals('0.0.4'));
+      expect(output.newVersion, equals('0.0.5'));
       expect(downloads.single.first, contains('docmd-linux-x64.tar.gz'));
-      expect(extracted.single, equals(['/tmp/docmd-0.0.4-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
+      expect(extracted.single, equals(['/tmp/docmd-0.0.5-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
       expect(chmodCalls.single, equals(['/home/test/.docmd/bin/docmd', '755']));
       expect(
         symlinks.single,
@@ -109,7 +109,7 @@ void main() {
       );
       expect(createdDirectories, contains('/home/test/.docmd'));
       expect(createdDirectories, contains('/home/test/.local/bin'));
-      expect(deleted, contains('/tmp/docmd-0.0.4-docmd-linux-x64.tar.gz'));
+      expect(deleted, contains('/tmp/docmd-0.0.5-docmd-linux-x64.tar.gz'));
     });
   });
 }

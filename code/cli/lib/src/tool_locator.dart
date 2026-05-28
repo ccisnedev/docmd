@@ -26,19 +26,20 @@ class ToolLocatorDeps {
 
 String? resolvePandocExecutable({ToolLocatorDeps? deps}) {
   final resolvedDeps = deps ?? ToolLocatorDeps();
+  final pathContext = _pathContext(resolvedDeps.platform);
 
   return resolveExecutable(
-    resolvedDeps.platform == 'windows' ? 'pandoc.exe' : 'pandoc',
+    _isWindowsPlatform(resolvedDeps.platform) ? 'pandoc.exe' : 'pandoc',
     deps: resolvedDeps,
     windowsCandidates: [
       if ((resolvedDeps.programFiles ?? Platform.environment['ProgramFiles']) != null)
-        p.join(
+        pathContext.join(
           resolvedDeps.programFiles ?? Platform.environment['ProgramFiles']!,
           'Pandoc',
           'pandoc.exe',
         ),
       if ((resolvedDeps.programFilesX86 ?? Platform.environment['ProgramFiles(x86)']) != null)
-        p.join(
+        pathContext.join(
           resolvedDeps.programFilesX86 ?? Platform.environment['ProgramFiles(x86)']!,
           'Pandoc',
           'pandoc.exe',
@@ -49,20 +50,21 @@ String? resolvePandocExecutable({ToolLocatorDeps? deps}) {
 
 String? resolveLibreOfficeExecutable({ToolLocatorDeps? deps}) {
   final resolvedDeps = deps ?? ToolLocatorDeps();
+  final pathContext = _pathContext(resolvedDeps.platform);
 
   return resolveExecutable(
-    resolvedDeps.platform == 'windows' ? 'soffice.exe' : 'soffice',
+    _isWindowsPlatform(resolvedDeps.platform) ? 'soffice.exe' : 'soffice',
     deps: resolvedDeps,
     windowsCandidates: [
       if ((resolvedDeps.programFiles ?? Platform.environment['ProgramFiles']) != null)
-        p.join(
+        pathContext.join(
           resolvedDeps.programFiles ?? Platform.environment['ProgramFiles']!,
           'LibreOffice',
           'program',
           'soffice.exe',
         ),
       if ((resolvedDeps.programFilesX86 ?? Platform.environment['ProgramFiles(x86)']) != null)
-        p.join(
+        pathContext.join(
           resolvedDeps.programFilesX86 ?? Platform.environment['ProgramFiles(x86)']!,
           'LibreOffice',
           'program',
@@ -77,11 +79,13 @@ String? resolveExecutable(
   required ToolLocatorDeps deps,
   List<String> windowsCandidates = const [],
 }) {
-  if (p.isAbsolute(executable) && deps.fileExists(executable)) {
+  final pathContext = _pathContext(deps.platform);
+
+  if (pathContext.isAbsolute(executable) && deps.fileExists(executable)) {
     return executable;
   }
 
-  final lookup = deps.platform == 'windows' ? 'where' : 'which';
+  final lookup = _isWindowsPlatform(deps.platform) ? 'where' : 'which';
   final lookupResult = deps.runSync(lookup, [executable]);
   if (lookupResult.exitCode == 0) {
     final stdout = '${lookupResult.stdout ?? ''}';
@@ -97,7 +101,7 @@ String? resolveExecutable(
     }
   }
 
-  if (deps.platform == 'windows') {
+  if (_isWindowsPlatform(deps.platform)) {
     for (final candidate in windowsCandidates) {
       if (deps.fileExists(candidate)) {
         return candidate;
@@ -106,4 +110,14 @@ String? resolveExecutable(
   }
 
   return null;
+}
+
+p.Context _pathContext(String platform) {
+  return p.Context(
+    style: _isWindowsPlatform(platform) ? p.Style.windows : p.Style.posix,
+  );
+}
+
+bool _isWindowsPlatform(String platform) {
+  return platform == 'windows' || platform == 'win32';
 }

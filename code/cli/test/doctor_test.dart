@@ -11,7 +11,7 @@ void main() {
         resolvePandocExecutable: () => '/usr/bin/pandoc',
         resolveLibreOfficeExecutable: () => r'C:\Program Files\LibreOffice\program\soffice.exe',
         versionChecker: ({required currentVersion}) async => const VersionCheckResult(
-          latestVersion: '0.0.4',
+          latestVersion: '0.0.5',
           updateAvailable: true,
         ),
       ).execute();
@@ -20,7 +20,7 @@ void main() {
       expect(output.checks, containsPair('pandoc', true));
       expect(output.checks, containsPair('libreoffice', true));
       expect(output.paths['libreoffice'], contains('soffice.exe'));
-      expect(output.latestVersion, equals('0.0.4'));
+      expect(output.latestVersion, equals('0.0.5'));
       expect(output.updateAvailable, isTrue);
       expect(output.toText(), contains('Run `docmd upgrade`'));
     });

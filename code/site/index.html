@@ -1,124 +1,245 @@
 <!DOCTYPE html>
+<!--
+  DocMD landing page — STRUCTURE ONLY.
+
+  Separation of concerns is a hard rule here (see code/site/README.md):
+    structure  -> index.html        (this file)
+    presentation -> css/landing.css  (all styles live there)
+    behaviour  -> js/landing.js      (all scripts live there)
+    logo/assets -> img/               (referenced, never inlined)
+
+  DO NOT:
+    - paste CSS into a <style> block or add style="..." attributes
+    - paste JS into a <script> block or add onclick="..." attributes
+    - inline the logo SVG — reference img/logo.svg
+  Keeping these as separate files is intentional: caching, reuse, diffability,
+  and single-source-of-truth. A self-contained one-file build is only ever a
+  throwaway preview, never this repo.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DocMD</title>
+  <title>DocMD — orchestrated document ingestion for LLMs and office workflows</title>
   <link rel="icon" href="img/logo.svg" type="image/svg+xml" />
   <meta
     name="description"
-    content="Markdown-first document workflows for VS Code, automation, and AI-assisted editing."
+    content="DocMD orchestrates best-of-breed engines to ingest docx, pdf, pptx and xlsx into clean, AI-readable Markdown packages you can edit in VS Code — then render back to pdf and docx."
   />
+  <!-- All presentation lives in css/landing.css. Do not add inline styles. -->
   <link rel="stylesheet" href="css/landing.css" />
 </head>
 <body>
-  <div class="page-shell">
-    <div class="brand-bar">
-      <div class="brand-lockup">
-        <img src="img/logo.svg" alt="DocMD logo" class="brand-mark" />
-        <div>
-          <p class="brand-name">DocMD</p>
-          <p class="brand-tag">Markdown-first document engine</p>
-        </div>
+  <nav class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="/">
+        <!-- Logo is an external asset (img/logo.svg); never inline the SVG here. -->
+        <img src="img/logo.svg" alt="DocMD logo" />
+        <span>DocMD</span>
+      </a>
+      <div class="nav-links">
+        <a href="#ingest">Ingestion</a>
+        <a href="#engines">Engines</a>
+        <a href="#commands">Commands</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/ccisnedev/docmd">GitHub</a>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">◐</button>
       </div>
     </div>
+  </nav>
 
-    <header class="hero">
+  <header class="hero">
+    <div class="wrap hero-inner">
       <div class="hero-copy">
         <p class="eyebrow">Markdown-first document engine</p>
-        <h1>Import office files, edit the canonical package, export again.</h1>
+        <h1>Turn any document into <span class="grad">clean, AI-readable Markdown</span> — and back.</h1>
         <p class="lede">
-          DocMD turns .docx workflows into readable packages that VS Code and AI can inspect,
-          edit, review, and render without treating a binary file as the source of truth.
+          DocMD orchestrates best-of-breed engines to ingest <code>.docx</code>, <code>.pdf</code>,
+          <code>.pptx</code> and <code>.xlsx</code> into a git-native Markdown package you can edit in
+          VS Code or the CLI — then render back to PDF and DOCX. Content over style: the text and
+          images survive, the binary never gets to be the source of truth.
         </p>
         <div class="cta-row">
-          <a class="button button-primary" href="https://github.com/ccisnedev/docmd">GitHub</a>
-          <a class="button button-secondary" href="https://github.com/ccisnedev/docmd/releases">Latest Releases</a>
+          <a class="button button-primary" href="#install">Install the CLI</a>
           <a class="button button-secondary" href="https://marketplace.visualstudio.com/items?itemName=ccisnedev.docmd-vscode">VS Code Extension</a>
+          <a class="button button-secondary" href="https://github.com/ccisnedev/docmd">GitHub</a>
+        </div>
+        <p class="hero-meta"><b>Open source</b> · orchestrates <b>pandoc</b>, <b>LibreOffice</b>, <b>docling</b> &amp; <b>markitdown</b> · Python only for PDF</p>
+      </div>
+
+      <div class="terminal" aria-hidden="true">
+        <div class="term-bar"><i></i><i></i><i></i><span>docmd</span></div>
+<pre class="term-body"><span class="p">$</span> docmd import report.pdf
+<span class="ok">✓</span> report.docmd  <span class="c"># docling → content/document.md</span>
+             <span class="c"># 1.8k words · 3 tables · 4 images</span>
+
+<span class="p">$</span> docmd doctor
+  import docx: <span class="ok">available</span> <span class="c">(pandoc)</span>
+  import pdf:  <span class="ok">available</span> <span class="c">(docling)</span>
+  render pdf:  <span class="ok">available</span> <span class="c">(pandoc+libreoffice)</span>
+
+<span class="p">$</span> docmd bench ./corpus <span class="hl">--reference</span> docling
+  docmd       12 docs  words 1.8k  tables 3.0  <span class="ok">recall 98%</span>
+  markitdown  12 docs  words 1.6k  tables 0.0  recall 82%</pre>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="ingest">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Why DocMD</p>
+          <h2>Ingestion good enough for LLMs — and a loop good enough for humans.</h2>
+          <p>Ingestion libraries stop at extraction. DocMD borrows their extraction and owns the round trip: an editable package, a VS Code frontend, and a render path back out.</p>
+        </div>
+        <div class="pillar-grid">
+          <article class="pillar">
+            <div class="ico">◎</div>
+            <h3>LLM-grade ingestion</h3>
+            <p>Structured Markdown plus extracted images, with reading order and tables preserved — a viable alternative to markitdown and docling, because it uses them.</p>
+          </article>
+          <article class="pillar">
+            <div class="ico">⇄</div>
+            <h3>A two-way loop</h3>
+            <p>Import into a package, edit the canonical Markdown, render back to PDF or DOCX. The editable truth is text and assets, not an opaque binary.</p>
+          </article>
+          <article class="pillar">
+            <div class="ico">⚙</div>
+            <h3>Best-of-breed, orchestrated</h3>
+            <p>DocMD picks the right engine per format and direction — pandoc, LibreOffice, docling or markitdown — behind one consistent CLI and package contract.</p>
+          </article>
         </div>
       </div>
-      <aside class="hero-panel">
-        <p class="panel-label">VS Code flow</p>
-        <ol>
-          <li>Install the DocMD extension.</li>
-          <li>Run DocMD: Import File or DocMD: Install CLI.</li>
-          <li>Accept the CLI install prompt if the runtime is missing.</li>
-          <li>Edit the generated package and export back to DOCX or PDF.</li>
-        </ol>
-      </aside>
-    </header>
+    </section>
 
-    <main>
-      <section class="section-grid">
-        <article class="card">
-          <p class="card-kicker">Windows CLI</p>
-          <h2>Install from the public site</h2>
-          <pre><code>irm https://docmd.ccisne.dev/install.ps1 | iex</code></pre>
-        </article>
+    <section id="engines">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">The engine matrix</p>
+          <h2>The idoneous tool for each format.</h2>
+          <p>Python is scoped to PDF ingestion only. Everything else — all render, and docx/pptx/xlsx import — is native. Edit Markdown and export, and you need no Python at all.</p>
+        </div>
+        <div class="table-scroll">
+          <table class="engine-table">
+            <thead>
+              <tr><th>Format</th><th>Import engine</th><th>Runtime</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>.md</code></td><td>passthrough (copy)</td><td><span class="tag native">native</span></td></tr>
+              <tr><td><code>.docx</code></td><td>pandoc</td><td><span class="tag native">native</span></td></tr>
+              <tr><td><code>.pptx</code> / <code>.xlsx</code></td><td>LibreOffice → pandoc</td><td><span class="tag native">native</span></td></tr>
+              <tr><td><code>.pdf</code></td><td>docling <span class="c">(default)</span> · markitdown <span class="c">(fallback)</span></td><td><span class="tag py">python</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="matrix-note">Render (Markdown → X): <code>docx</code>, <code>pptx</code> via pandoc; <code>pdf</code> via pandoc → LibreOffice. PDF defaults to docling for its layout, table structure and OCR — markitdown stays the zero-friction fallback.</p>
+      </div>
+    </section>
 
-        <article class="card">
-          <p class="card-kicker">Linux CLI</p>
-          <h2>Install from the public site</h2>
-          <pre><code>curl -fsSL https://docmd.ccisne.dev/install.sh | bash</code></pre>
-        </article>
+    <section id="commands">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">One CLI</p>
+          <h2>Everything runs through the same local runtime.</h2>
+          <p>The VS Code extension is a frontend over these commands, so automation and editor UX stay aligned.</p>
+        </div>
+        <div class="cmd-grid">
+          <article class="cmd">
+            <code><b>docmd import</b> report.pdf</code>
+            <p>Ingest docx / pdf / pptx / xlsx into a <code>.docmd</code> package with canonical Markdown and extracted assets.</p>
+          </article>
+          <article class="cmd">
+            <code><b>docmd render</b> report.docmd --pdf</code>
+            <p>Render the edited package back out to PDF (also DOCX and PPTX).</p>
+          </article>
+          <article class="cmd">
+            <code><b>docmd doctor</b></code>
+            <p>Per-capability report of which import/render formats are available on this machine, with install hints.</p>
+          </article>
+          <article class="cmd">
+            <code><b>docmd bench</b> ./corpus --reference docling</code>
+            <p>Compare docmd vs docling vs markitdown on coverage and text recall — the measure of “viable alternative”.</p>
+          </article>
+          <article class="cmd">
+            <code><b>docmd setup</b> pdf <span class="amber">--apply</span></code>
+            <p>Provision the toolchain — pandoc &amp; LibreOffice via your package manager, docling &amp; markitdown via <code>uv</code>. Terraform-style <code>--plan</code> by default, <code>--apply</code> to execute.</p>
+          </article>
+          <article class="cmd">
+            <code><b>docmd tui</b></code>
+            <p>A summary of your packages and available workflows, straight in the terminal.</p>
+          </article>
+        </div>
+      </div>
+    </section>
 
-        <article class="card">
-          <p class="card-kicker">Canonical model</p>
-          <h2>The editable truth is a package</h2>
-          <pre><code>proposal.docmd/
-  manifest.yaml
-  content/document.md
-  assets/
-  exports/</code></pre>
-        </article>
-      </section>
-
-      <section class="section-slab">
+    <section id="model">
+      <div class="wrap model-grid">
         <div>
-          <p class="eyebrow">Why DocMD exists</p>
-          <h2>Documents should behave like code artifacts.</h2>
-        </div>
-        <div class="three-up">
-          <article>
-            <h3>Readable by humans</h3>
-            <p>Review the document structure in Markdown instead of diffing a binary blob.</p>
-          </article>
-          <article>
-            <h3>Readable by AI</h3>
-            <p>Agents can inspect sections, tables, and assets directly without opaque preprocessing.</p>
-          </article>
-          <article>
-            <h3>Renderable outward</h3>
-            <p>Non-technical stakeholders still receive DOCX and PDF exports when the workflow is done.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section-grid section-grid-wide">
-        <article class="card">
-          <p class="card-kicker">Architecture</p>
-          <h2>CLI-first runtime, VS Code-first experience</h2>
-          <p>
-            The extension is a frontend over the DocMD CLI. Import, doctor, and render all flow
-            through the same local runtime so automation and editor UX stay aligned.
+          <p class="eyebrow">The canonical model</p>
+          <div class="section-head section-head--flush">
+            <h2>The editable truth is a package.</h2>
+          </div>
+          <p class="lede">
+            Every import produces a folder: a manifest, the canonical Markdown, the original file, and
+            extracted assets. Review it in a diff, edit it with an agent, render it when you’re done —
+            it behaves like a code artifact, not a binary blob.
           </p>
-        </article>
+        </div>
+<pre class="tree"><span class="d">report.docmd/</span>
+  manifest.yaml       <span class="c"># kind, source, import status</span>
+  <span class="d">content/</span>document.md   <span class="c"># the canonical, editable truth</span>
+  <span class="d">assets/</span>             <span class="c"># extracted images</span>
+    <span class="d">original/</span>         <span class="c"># the untouched source file</span>
+  <span class="d">exports/</span>            <span class="c"># rendered pdf / docx</span></pre>
+      </div>
+    </section>
 
-        <article class="card">
-          <p class="card-kicker">Release channel</p>
-          <h2>GitHub Releases feed both the CLI and the extension installer</h2>
-          <p>
-            The VS Code extension downloads the latest DocMD CLI release directly and installs it
-            into a managed user directory instead of invoking an external install script.
-          </p>
-        </article>
-      </section>
-    </main>
+    <section id="install">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Get started</p>
+          <h2>Install the CLI, then let it provision the rest.</h2>
+          <p>Grab the DocMD runtime, then run <code>docmd setup</code> to install the conversion engines it orchestrates.</p>
+        </div>
+        <div class="install-grid">
+          <article class="install-card">
+            <p class="kicker">Windows</p>
+            <h3>PowerShell</h3>
+            <div class="code">
+              <pre><code>irm https://docmd.ccisne.dev/install.ps1 | iex</code></pre>
+              <button class="copy" data-copy="irm https://docmd.ccisne.dev/install.ps1 | iex" aria-label="Copy command">⧉</button>
+            </div>
+          </article>
+          <article class="install-card">
+            <p class="kicker">Linux</p>
+            <h3>Shell</h3>
+            <div class="code">
+              <pre><code>curl -fsSL https://docmd.ccisne.dev/install.sh | bash</code></pre>
+              <button class="copy" data-copy="curl -fsSL https://docmd.ccisne.dev/install.sh | bash" aria-label="Copy command">⧉</button>
+            </div>
+          </article>
+          <article class="install-card">
+            <p class="kicker">Engines</p>
+            <h3>Provision the toolchain</h3>
+            <div class="code">
+              <pre><code>docmd setup all --apply</code></pre>
+              <button class="copy" data-copy="docmd setup all --apply" aria-label="Copy command">⧉</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
 
-    <footer class="footer">
-      <p>DocMD is open source and built in public on GitHub.</p>
+  <footer>
+    <div class="wrap footer">
+      <p>DocMD is open source and built in public.</p>
       <a href="https://github.com/ccisnedev/docmd">github.com/ccisnedev/docmd</a>
-    </footer>
-  </div>
+    </div>
+  </footer>
+
+  <!-- All behaviour lives in js/landing.js. Do not add inline scripts. -->
+  <script src="js/landing.js" defer></script>
 </body>
 </html>

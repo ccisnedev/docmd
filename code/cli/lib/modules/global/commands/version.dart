@@ -10,6 +10,11 @@ class VersionInput extends Input {
 
   factory VersionInput.fromCliRequest(CliRequest req) => VersionInput();
 
+  static const List<CliParam> params = [];
+
+  @override
+  List<CliParam> get schemaFields => params;
+
   @override
   Map<String, dynamic> toJson() => {};
 }

@@ -7,5 +7,6 @@ void buildImportModule(ModuleBuilder m) {
     '<input>',
     (req) => ImportCommand(ImportInput.fromCliRequest(req)),
     description: 'Import an external document into a DocMD package scaffold',
+    params: ImportInput.params,
   );
 }

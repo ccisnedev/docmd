@@ -74,6 +74,36 @@ String? resolveLibreOfficeExecutable({ToolLocatorDeps? deps}) {
   );
 }
 
+/// Resolves the `docling` PDF ingestion engine. Installed via `uv tool install
+/// docling`, so it is expected on `PATH` rather than in a fixed install dir.
+String? resolveDoclingExecutable({ToolLocatorDeps? deps}) {
+  final resolvedDeps = deps ?? ToolLocatorDeps();
+  return resolveExecutable(
+    _isWindowsPlatform(resolvedDeps.platform) ? 'docling.exe' : 'docling',
+    deps: resolvedDeps,
+  );
+}
+
+/// Resolves the `markitdown` PDF ingestion engine (lightweight fallback).
+/// Installed via `uv tool install 'markitdown[all]'`, so it is expected on
+/// `PATH`.
+String? resolveMarkitdownExecutable({ToolLocatorDeps? deps}) {
+  final resolvedDeps = deps ?? ToolLocatorDeps();
+  return resolveExecutable(
+    _isWindowsPlatform(resolvedDeps.platform) ? 'markitdown.exe' : 'markitdown',
+    deps: resolvedDeps,
+  );
+}
+
+/// Resolves the `uv` tool runner used to bootstrap docling/markitdown.
+String? resolveUvExecutable({ToolLocatorDeps? deps}) {
+  final resolvedDeps = deps ?? ToolLocatorDeps();
+  return resolveExecutable(
+    _isWindowsPlatform(resolvedDeps.platform) ? 'uv.exe' : 'uv',
+    deps: resolvedDeps,
+  );
+}
+
 String? resolveExecutable(
   String executable, {
   required ToolLocatorDeps deps,

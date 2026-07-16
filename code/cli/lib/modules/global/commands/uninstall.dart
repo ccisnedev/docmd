@@ -12,6 +12,11 @@ class UninstallInput extends Input {
 
   factory UninstallInput.fromCliRequest(CliRequest req) => UninstallInput();
 
+  static const List<CliParam> params = [];
+
+  @override
+  List<CliParam> get schemaFields => params;
+
   @override
   Map<String, dynamic> toJson() => {};
 }

@@ -75,7 +75,8 @@ exports needs no Python.
    reference engine), reporting any skipped/failed engine instead of dropping it.
 5. [x] `docmd setup [all|pdf|docx]` provisioning — evidence-based install plan
    per OS (winget/brew/apt for pandoc & LibreOffice; uv-bootstrapped docling &
-   markitdown). Dry-run preview by default; `--run` executes.
+   markitdown). Terraform-style `--plan` (safe default) / `--apply`, matching
+   `iq issue publish`.
 
 Follow-ups deferred from this cut: engine + version recorded in the manifest
 (D2 provenance); pptx/xlsx real ingestion via LibreOffice; end-to-end validation

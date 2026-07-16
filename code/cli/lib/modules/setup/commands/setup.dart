@@ -11,26 +11,32 @@ import '../../../src/tool_locator.dart';
 
 class SetupInput extends Input {
   final String capability;
-  final bool run;
+  final bool apply;
 
-  SetupInput({this.capability = 'all', this.run = false});
+  SetupInput({this.capability = 'all', this.apply = false});
 
   factory SetupInput.fromCliRequest(CliRequest req) {
     final capability = (req.params['capability'] ?? 'all').trim();
     return SetupInput(
       capability: capability.isEmpty ? 'all' : capability,
-      run: req.flagBool('run'),
+      apply: req.flagBool('apply'),
     );
   }
 
+  // Terraform-style, matching `iq issue publish`: `--plan` is the safe default
+  // and carries no value the command reads; `--apply` executes.
   static final List<CliParam> params = [
     CliParam.positional(
       'capability',
       description: 'What to provision: all, pdf, or docx (default: all)',
     ),
     CliParam.boolean(
-      'run',
-      description: 'Execute the plan instead of only printing it',
+      'plan',
+      description: 'Preview the install plan without changing anything (default)',
+    ),
+    CliParam.boolean(
+      'apply',
+      description: 'Execute the install plan',
     ),
   ];
 
@@ -38,7 +44,7 @@ class SetupInput extends Input {
   List<CliParam> get schemaFields => params;
 
   @override
-  Map<String, dynamic> toJson() => {'capability': capability, 'run': run};
+  Map<String, dynamic> toJson() => {'capability': capability, 'apply': apply};
 }
 
 class StepResult {
@@ -101,7 +107,7 @@ class SetupOutput extends Output {
 
     if (!executed) {
       lines.add('');
-      lines.add('This is a preview. Re-run with --run to execute these steps.');
+      lines.add('This is a plan. Re-run with --apply to execute these steps.');
       return lines.join('\n');
     }
 
@@ -172,7 +178,7 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
     );
 
     final results = <StepResult>[];
-    if (input.run) {
+    if (input.apply) {
       for (final step in plan) {
         final result = await _runProcess(step.executable, step.args);
         results.add(StepResult(
@@ -191,7 +197,7 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
     return SetupOutput(
       capability: input.capability,
       plan: plan,
-      executed: input.run,
+      executed: input.apply,
       results: results,
     );
   }

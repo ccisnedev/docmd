@@ -1,3 +1,3 @@
 library;
 
-const String docmdVersion = '0.0.4';
+const String docmdVersion = '0.0.5';

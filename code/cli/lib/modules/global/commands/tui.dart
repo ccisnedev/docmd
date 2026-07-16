@@ -10,6 +10,11 @@ class TuiInput extends Input {
 
   factory TuiInput.fromCliRequest(CliRequest req) => TuiInput();
 
+  static const List<CliParam> params = [];
+
+  @override
+  List<CliParam> get schemaFields => params;
+
   @override
   Map<String, dynamic> toJson() => {};
 }

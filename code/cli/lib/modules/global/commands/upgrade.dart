@@ -18,6 +18,11 @@ class UpgradeInput extends Input {
 
   factory UpgradeInput.fromCliRequest(CliRequest req) => UpgradeInput();
 
+  static const List<CliParam> params = [];
+
+  @override
+  List<CliParam> get schemaFields => params;
+
   @override
   Map<String, dynamic> toJson() => {};
 }

@@ -1,14 +1,14 @@
 name: docmd_cli
 description: >
   CLI runtime for DocMD — import, validate, and render Markdown-first document packages.
-version: 0.0.4
+version: 0.0.5
 
 environment:
   sdk: ^3.8.1
 
 dependencies:
-  cli_router: ^0.0.3
-  modular_cli_sdk: ^0.2.1
+  cli_router: ^0.1.0
+  modular_cli_sdk: ^0.3.3
   path: ^1.9.1
 
 dev_dependencies:

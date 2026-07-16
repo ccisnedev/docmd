@@ -28,6 +28,19 @@ class RenderInput extends Input {
     return RenderInput(inputPath: req.params['input'] ?? '', format: format);
   }
 
+  static final List<CliParam> params = [
+    CliParam.positional(
+      'input',
+      description: 'Markdown file or DocMD package to render',
+    ),
+    CliParam.boolean('pdf', description: 'Render to PDF'),
+    CliParam.boolean('pptx', description: 'Render to PPTX'),
+    CliParam.boolean('xlsx', description: 'Render to XLSX'),
+  ];
+
+  @override
+  List<CliParam> get schemaFields => params;
+
   @override
   Map<String, dynamic> toJson() => {
     'inputPath': inputPath,

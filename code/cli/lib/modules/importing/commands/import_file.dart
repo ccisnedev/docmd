@@ -6,6 +6,7 @@ import 'package:cli_router/cli_router.dart';
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../src/ingestion/ingestion_registry.dart';
 import '../../../src/package_layout.dart';
 import '../../../src/process_runner.dart';
 
@@ -32,6 +33,23 @@ class ImportInput extends Input {
       suffix: req.flagBool('suffix'),
     );
   }
+
+  static final List<CliParam> params = [
+    CliParam.positional('input', description: 'Path to the document to import'),
+    CliParam.string(
+      'output-dir',
+      description: 'Directory to create the DocMD package in',
+    ),
+    CliParam.string('output', description: 'Alias of --output-dir'),
+    CliParam.boolean('overwrite', description: 'Replace an existing package'),
+    CliParam.boolean(
+      'suffix',
+      description: 'Create a numbered copy when the package already exists',
+    ),
+  ];
+
+  @override
+  List<CliParam> get schemaFields => params;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -88,10 +106,14 @@ class ImportOutput extends Output {
 class ImportCommand implements Command<ImportInput, ImportOutput> {
   @override
   final ImportInput input;
-  final ProcessRunner _runProcess;
+  final IngestionRegistry _registry;
 
-  ImportCommand(this.input, {ProcessRunner? processRunner})
-    : _runProcess = processRunner ?? runProcess;
+  ImportCommand(
+    this.input, {
+    ProcessRunner? processRunner,
+    IngestionRegistry? registry,
+  }) : _registry =
+           registry ?? IngestionRegistry.defaults(processRunner: processRunner);
 
   @override
   String? validate() {
@@ -140,11 +162,16 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
     layout.createSkeleton();
     layout.copyOriginalSource(source);
 
-    final status = await _populateCanonicalContent(
+    final backend = _registry.backendFor(sourceFormat);
+    if (backend == null) {
+      throw UnsupportedError('Unsupported import format: $sourceFormat');
+    }
+    final result = await backend.ingest(
       source: source,
-      sourceFormat: sourceFormat,
+      format: sourceFormat,
       layout: layout,
     );
+    final status = result.status;
 
     layout.writeManifest(
       kind: _inferKind(sourceFormat),
@@ -182,92 +209,6 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
       if (!candidate.exists) {
         return candidate;
       }
-    }
-  }
-
-  Future<String> _populateCanonicalContent({
-    required File source,
-    required String sourceFormat,
-    required DocmdPackageLayout layout,
-  }) async {
-    switch (sourceFormat) {
-      case 'md':
-      case 'markdown':
-        source.copySync(layout.canonicalDocumentPath);
-        return 'copied';
-      case 'docx':
-        await _convertDocxToMarkdown(source, layout);
-        _normalizeAssetReferences(layout.canonicalDocumentPath);
-        return 'converted';
-      case 'pdf':
-      case 'pptx':
-      case 'xlsx':
-        _writePlaceholderDocument(
-          layout: layout,
-          sourceFilename: p.basename(source.path),
-          sourceFormat: sourceFormat,
-        );
-        return 'package-only';
-      default:
-        throw UnsupportedError('Unsupported import format: $sourceFormat');
-    }
-  }
-
-  Future<void> _convertDocxToMarkdown(
-    File source,
-    DocmdPackageLayout layout,
-  ) async {
-    final result = await _runProcess('pandoc', [
-      source.path,
-      '-t',
-      'gfm',
-      '--wrap=none',
-      '--extract-media=${layout.assetsDirPath}',
-      '-o',
-      layout.canonicalDocumentPath,
-    ]);
-
-    if (result.exitCode != 0) {
-      throw ProcessException(
-        'pandoc',
-        [],
-        'Pandoc import failed with exit code ${result.exitCode}: ${result.stderr}',
-        result.exitCode,
-      );
-    }
-  }
-
-  void _writePlaceholderDocument({
-    required DocmdPackageLayout layout,
-    required String sourceFilename,
-    required String sourceFormat,
-  }) {
-    File(layout.canonicalDocumentPath).writeAsStringSync([
-      '# Imported asset',
-      '',
-      'Original file: $sourceFilename',
-      '',
-      'Source format: .$sourceFormat',
-      '',
-      'The original file was copied into `assets/original/`.',
-      'Semantic extraction for this format is not implemented yet.',
-    ].join('\n'));
-  }
-
-  void _normalizeAssetReferences(String markdownPath) {
-    final file = File(markdownPath);
-    if (!file.existsSync()) {
-      return;
-    }
-
-    final content = file.readAsStringSync();
-    final normalized = content
-        .replaceAll('(assets/', '(../assets/')
-        .replaceAll('="assets/', '="../assets/')
-        .replaceAll("='assets/", "='../assets/");
-
-    if (normalized != content) {
-      file.writeAsStringSync(normalized);
     }
   }
 

@@ -1,4 +1,21 @@
 <!DOCTYPE html>
+<!--
+  DocMD landing page — STRUCTURE ONLY.
+
+  Separation of concerns is a hard rule here (see code/site/README.md):
+    structure  -> index.html        (this file)
+    presentation -> css/landing.css  (all styles live there)
+    behaviour  -> js/landing.js      (all scripts live there)
+    logo/assets -> img/               (referenced, never inlined)
+
+  DO NOT:
+    - paste CSS into a <style> block or add style="..." attributes
+    - paste JS into a <script> block or add onclick="..." attributes
+    - inline the logo SVG — reference img/logo.svg
+  Keeping these as separate files is intentional: caching, reuse, diffability,
+  and single-source-of-truth. A self-contained one-file build is only ever a
+  throwaway preview, never this repo.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,12 +26,14 @@
     name="description"
     content="DocMD orchestrates best-of-breed engines to ingest docx, pdf, pptx and xlsx into clean, AI-readable Markdown packages you can edit in VS Code — then render back to pdf and docx."
   />
+  <!-- All presentation lives in css/landing.css. Do not add inline styles. -->
   <link rel="stylesheet" href="css/landing.css" />
 </head>
 <body>
   <nav class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="/">
+        <!-- Logo is an external asset (img/logo.svg); never inline the SVG here. -->
         <img src="img/logo.svg" alt="DocMD logo" />
         <span>DocMD</span>
       </a>
@@ -143,7 +162,7 @@
             <p>Compare docmd vs docling vs markitdown on coverage and text recall — the measure of “viable alternative”.</p>
           </article>
           <article class="cmd">
-            <code><b>docmd setup</b> pdf <span style="color:var(--amber)">--apply</span></code>
+            <code><b>docmd setup</b> pdf <span class="amber">--apply</span></code>
             <p>Provision the toolchain — pandoc &amp; LibreOffice via your package manager, docling &amp; markitdown via <code>uv</code>. Terraform-style <code>--plan</code> by default, <code>--apply</code> to execute.</p>
           </article>
           <article class="cmd">
@@ -158,7 +177,7 @@
       <div class="wrap model-grid">
         <div>
           <p class="eyebrow">The canonical model</p>
-          <div class="section-head" style="margin:0">
+          <div class="section-head section-head--flush">
             <h2>The editable truth is a package.</h2>
           </div>
           <p class="lede">
@@ -220,35 +239,7 @@
     </div>
   </footer>
 
-  <script>
-    (function () {
-      var root = document.documentElement;
-      var toggle = document.getElementById('themeToggle');
-      try {
-        var saved = localStorage.getItem('docmd-theme');
-        if (saved) root.setAttribute('data-theme', saved);
-      } catch (e) {}
-      function current() {
-        return root.getAttribute('data-theme') ||
-          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      }
-      toggle.addEventListener('click', function () {
-        var next = current() === 'dark' ? 'light' : 'dark';
-        root.setAttribute('data-theme', next);
-        try { localStorage.setItem('docmd-theme', next); } catch (e) {}
-      });
-
-      document.querySelectorAll('.copy').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var text = btn.getAttribute('data-copy');
-          navigator.clipboard && navigator.clipboard.writeText(text).then(function () {
-            btn.textContent = '✓';
-            btn.classList.add('done');
-            setTimeout(function () { btn.textContent = '⧉'; btn.classList.remove('done'); }, 1400);
-          });
-        });
-      });
-    })();
-  </script>
+  <!-- All behaviour lives in js/landing.js. Do not add inline scripts. -->
+  <script src="js/landing.js" defer></script>
 </body>
 </html>

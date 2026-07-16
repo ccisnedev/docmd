@@ -1,6 +1,13 @@
-/* DocMD landing — palette aligned to the brand mark: navy ink, mint/teal,
-   warm amber accent, paper neutrals. Theme-aware (light default, dark via
-   prefers-color-scheme, both overridable by a [data-theme] toggle). */
+/* DocMD landing — PRESENTATION ONLY. Single source of truth for all styles.
+   Palette aligned to the brand mark: navy ink, mint/teal, warm amber accent,
+   paper neutrals. Theme-aware (light default, dark via prefers-color-scheme,
+   both overridable by a [data-theme] toggle).
+
+   Separation of concerns is a hard rule (see code/site/README.md):
+     structure -> index.html   behaviour -> js/landing.js   this -> presentation
+   Every style belongs here — never in a <style> block or a style="..." attribute
+   in index.html. Need a one-off? Add a small utility class here (see the
+   "utilities" block at the end) instead of inlining. */
 
 :root {
   --bg: #fbf8f1;
@@ -273,6 +280,11 @@ footer { border-top: 1px solid var(--border); }
 }
 .footer p { margin: 0; }
 .footer a { color: var(--accent-strong); font-weight: 600; }
+
+/* ---------- utilities ---------- */
+/* Small, reusable helpers so index.html never needs a style="..." attribute. */
+.amber { color: var(--amber); }
+.section-head--flush { margin: 0; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 940px) {

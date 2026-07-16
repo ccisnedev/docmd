@@ -35,14 +35,14 @@ void main() {
       expect(output.executed, isFalse);
       expect(invocations, equals(0));
       expect(output.plan, isNotEmpty);
-      expect(output.toText(), contains('--run to execute'));
+      expect(output.toText(), contains('--apply to execute'));
       expect(output.exitCode, equals(0));
     });
 
-    test('--run executes each planned step through the runner', () async {
+    test('--apply executes each planned step through the runner', () async {
       final executed = <String>[];
       final cmd = SetupCommand(
-        SetupInput(capability: 'docx', run: true),
+        SetupInput(capability: 'docx', apply: true),
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: present,
@@ -83,7 +83,7 @@ void main() {
     test('stops after a failed uv install and reports non-zero exit', () async {
       final executed = <String>[];
       final cmd = SetupCommand(
-        SetupInput(capability: 'all', run: true),
+        SetupInput(capability: 'all', apply: true),
         platform: 'linux',
         resolvePandoc: present,
         resolveLibreOffice: present,

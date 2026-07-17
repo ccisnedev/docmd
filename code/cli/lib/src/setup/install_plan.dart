@@ -27,22 +27,19 @@ class InstallStep {
   };
 }
 
-/// Tools required per capability. PDF spans import (docling and markitdown,
-/// bootstrapped by uv) and render (pandoc + LibreOffice). Order is
-/// dependency-correct: uv precedes the uv-installed tools.
+/// Tools required per capability. Import is pure Dart (pdf/pptx) or Pandoc
+/// (docx); the only tools to provision are Pandoc — for docx import and all
+/// render — and LibreOffice, for PDF render. No Python engines.
 ///
 /// Every individual tool is also a capability: the root help advertises the tool
 /// names, so the tool names have to be accepted, and naming one is how a user
 /// repairs exactly the thing `doctor` told them about.
 const Map<String, List<String>> _capabilityTools = {
   'docx': ['pandoc'],
-  'pdf': ['pandoc', 'libreoffice', 'uv', 'docling', 'markitdown'],
-  'all': ['pandoc', 'libreoffice', 'uv', 'docling', 'markitdown'],
+  'pdf': ['pandoc', 'libreoffice'],
+  'all': ['pandoc', 'libreoffice'],
   'pandoc': ['pandoc'],
   'libreoffice': ['libreoffice'],
-  'uv': ['uv'],
-  'docling': ['uv', 'docling'],
-  'markitdown': ['uv', 'markitdown'],
 };
 
 /// Capabilities a user can provision, derived from the plans that exist so the
@@ -58,26 +55,18 @@ List<InstallStep> buildSetupPlan({
   required String capability,
   bool hasPandoc = false,
   bool hasLibreOffice = false,
-  bool hasUv = false,
-  bool hasDocling = false,
-  bool hasMarkitdown = false,
   bool force = false,
 }) {
   final os = _normalizePlatform(platform);
   final present = {
     'pandoc': hasPandoc,
     'libreoffice': hasLibreOffice,
-    'uv': hasUv,
-    'docling': hasDocling,
-    'markitdown': hasMarkitdown,
   };
 
   final tools = _capabilityTools[capability] ?? const [];
   final steps = <InstallStep>[];
   for (final tool in tools) {
     if (!force && present[tool] == true) continue;
-    // docling/markitdown need uv; if uv is already present it won't be in the
-    // list, which is fine — the uv-tool step still runs.
     steps.add(_stepFor(tool, os));
   }
   return steps;
@@ -102,24 +91,6 @@ InstallStep _stepFor(String tool, String os) {
         wingetId: 'TheDocumentFoundation.LibreOffice',
         brewArgs: ['install', '--cask', 'libreoffice'],
         aptPackage: 'libreoffice',
-      );
-    case 'uv':
-      return _uvStep(os);
-    case 'docling':
-      return const InstallStep(
-        tool: 'docling',
-        description: 'Default PDF ingestion engine (layout, tables, OCR)',
-        executable: 'uv',
-        args: ['tool', 'install', 'docling'],
-        display: 'uv tool install docling',
-      );
-    case 'markitdown':
-      return const InstallStep(
-        tool: 'markitdown',
-        description: 'Lightweight PDF ingestion fallback',
-        executable: 'uv',
-        args: ['tool', 'install', 'markitdown[all]'],
-        display: "uv tool install 'markitdown[all]'",
       );
     default:
       throw ArgumentError('Unknown tool: $tool');
@@ -160,27 +131,6 @@ InstallStep _packageStep({
         display: 'sudo apt-get install -y $aptPackage',
       );
   }
-}
-
-InstallStep _uvStep(String os) {
-  if (os == 'windows') {
-    return const InstallStep(
-      tool: 'uv',
-      description: 'Python tool runner that bootstraps docling/markitdown '
-          '(no pre-existing Python required)',
-      executable: 'powershell',
-      args: ['-ExecutionPolicy', 'ByPass', '-c', 'irm https://astral.sh/uv/install.ps1 | iex'],
-      display: 'powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"',
-    );
-  }
-  return const InstallStep(
-    tool: 'uv',
-    description: 'Python tool runner that bootstraps docling/markitdown '
-        '(no pre-existing Python required)',
-    executable: 'sh',
-    args: ['-c', 'curl -LsSf https://astral.sh/uv/install.sh | sh'],
-    display: 'curl -LsSf https://astral.sh/uv/install.sh | sh',
-  );
 }
 
 String _normalizePlatform(String platform) {

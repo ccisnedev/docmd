@@ -15,14 +15,18 @@ import 'ingestion_backend.dart';
 /// output file via `-o`, so no post-processing is needed.
 class MarkitdownPdfBackend implements IngestionBackend {
   final ProcessRunner _runProcess;
+  final String? Function() _resolveExecutable;
   final bool Function() _isAvailable;
 
   MarkitdownPdfBackend({
     ProcessRunner? processRunner,
+    String? Function()? executableResolver,
     bool Function()? isAvailable,
   }) : _runProcess = processRunner ?? runProcess,
+       _resolveExecutable = executableResolver ?? resolveMarkitdownExecutable,
        _isAvailable =
-           isAvailable ?? (() => resolveMarkitdownExecutable() != null);
+           isAvailable ??
+           (() => (executableResolver ?? resolveMarkitdownExecutable)() != null);
 
   @override
   String get engineId => 'markitdown';
@@ -42,7 +46,10 @@ class MarkitdownPdfBackend implements IngestionBackend {
     required String format,
     required DocmdPackageLayout layout,
   }) async {
-    final result = await _runProcess('markitdown', [
+    // Run the verified path, never the bare name: PATH lookup would re-select a
+    // broken shim that the locator deliberately skipped.
+    final executable = _resolveExecutable() ?? 'markitdown';
+    final result = await _runProcess(executable, [
       source.path,
       '-o',
       layout.canonicalDocumentPath,

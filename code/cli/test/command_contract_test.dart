@@ -41,6 +41,19 @@ void main() {
       expect(err, contains('unknown option --bogus'));
     });
 
+    // --pptx/--xlsx used to parse and then always fail with "Unsupported output
+    // format". A flag that exists only to reject its own use advertises a
+    // capability docmd does not have; better to not declare it until the
+    // renderer exists.
+    test('render does not advertise renderers that do not exist', () async {
+      for (final flag in ['--pptx', '--xlsx']) {
+        final (code, err) = await _run(['render', missing, flag]);
+        expect(code, 7);
+        expect(err, contains('unknown option $flag'));
+        expect(err, isNot(contains('Unsupported output format')));
+      }
+    });
+
     test('import rejects an unknown option', () async {
       final (code, err) = await _run(['import', missing, '--bogus']);
       expect(code, 7);

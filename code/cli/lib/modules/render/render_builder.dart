@@ -6,7 +6,7 @@ void buildRenderModule(ModuleBuilder m) {
   m.command<RenderInput, RenderOutput>(
     '<input>',
     (req) => RenderCommand(RenderInput.fromCliRequest(req)),
-    description: 'Render canonical content to DOCX, PDF, PPTX, or XLSX',
+    description: 'Render canonical content to DOCX or PDF',
     params: RenderInput.params,
   );
 }

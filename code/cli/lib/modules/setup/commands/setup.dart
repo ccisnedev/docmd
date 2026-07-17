@@ -12,14 +12,16 @@ import '../../../src/tool_locator.dart';
 class SetupInput extends Input {
   final String capability;
   final bool apply;
+  final bool force;
 
-  SetupInput({this.capability = 'all', this.apply = false});
+  SetupInput({this.capability = 'all', this.apply = false, this.force = false});
 
   factory SetupInput.fromCliRequest(CliRequest req) {
     final capability = (req.params['capability'] ?? 'all').trim();
     return SetupInput(
       capability: capability.isEmpty ? 'all' : capability,
       apply: req.flagBool('apply'),
+      force: req.flagBool('force'),
     );
   }
 
@@ -28,7 +30,9 @@ class SetupInput extends Input {
   static final List<CliParam> params = [
     CliParam.positional(
       'capability',
-      description: 'What to provision: all, pdf, or docx (default: all)',
+      description:
+          'What to provision: a capability (all, pdf, docx) or a single tool '
+          '(pandoc, libreoffice, uv, docling, markitdown). Default: all',
     ),
     CliParam.boolean(
       'plan',
@@ -38,13 +42,21 @@ class SetupInput extends Input {
       'apply',
       description: 'Execute the install plan',
     ),
+    CliParam.boolean(
+      'force',
+      description: 'Reinstall tools even if they are already present',
+    ),
   ];
 
   @override
   List<CliParam> get schemaFields => params;
 
   @override
-  Map<String, dynamic> toJson() => {'capability': capability, 'apply': apply};
+  Map<String, dynamic> toJson() => {
+    'capability': capability,
+    'apply': apply,
+    'force': force,
+  };
 }
 
 class StepResult {
@@ -175,6 +187,7 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
       hasUv: _resolveUv() != null,
       hasDocling: _resolveDocling() != null,
       hasMarkitdown: _resolveMarkitdown() != null,
+      force: input.force,
     );
 
     final results = <StepResult>[];

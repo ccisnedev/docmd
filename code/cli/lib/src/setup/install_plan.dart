@@ -27,22 +27,32 @@ class InstallStep {
   };
 }
 
-/// Capabilities a user can provision. `all` covers every engine; the others
-/// scope provisioning to what a direction/format needs.
-const Set<String> setupCapabilities = {'all', 'pdf', 'docx'};
-
-/// Tools required per capability. PDF spans import (docling, bootstrapped by uv)
-/// and render (pandoc + LibreOffice). Order is dependency-correct: uv precedes
-/// the uv-installed tools.
+/// Tools required per capability. PDF spans import (docling and markitdown,
+/// bootstrapped by uv) and render (pandoc + LibreOffice). Order is
+/// dependency-correct: uv precedes the uv-installed tools.
+///
+/// Every individual tool is also a capability: the root help advertises the tool
+/// names, so the tool names have to be accepted, and naming one is how a user
+/// repairs exactly the thing `doctor` told them about.
 const Map<String, List<String>> _capabilityTools = {
   'docx': ['pandoc'],
-  'pdf': ['pandoc', 'libreoffice', 'uv', 'docling'],
+  'pdf': ['pandoc', 'libreoffice', 'uv', 'docling', 'markitdown'],
   'all': ['pandoc', 'libreoffice', 'uv', 'docling', 'markitdown'],
+  'pandoc': ['pandoc'],
+  'libreoffice': ['libreoffice'],
+  'uv': ['uv'],
+  'docling': ['uv', 'docling'],
+  'markitdown': ['uv', 'markitdown'],
 };
 
+/// Capabilities a user can provision, derived from the plans that exist so the
+/// two can never drift apart.
+final Set<String> setupCapabilities = _capabilityTools.keys.toSet();
+
 /// Builds the ordered list of install steps for [capability] on [platform],
-/// skipping any tool already reported present. Availability flags are injected
-/// so the plan reflects the real machine without probing during planning.
+/// skipping any tool already reported present unless [force] is set. Availability
+/// flags are injected so the plan reflects the real machine without probing
+/// during planning.
 List<InstallStep> buildSetupPlan({
   required String platform,
   required String capability,
@@ -51,6 +61,7 @@ List<InstallStep> buildSetupPlan({
   bool hasUv = false,
   bool hasDocling = false,
   bool hasMarkitdown = false,
+  bool force = false,
 }) {
   final os = _normalizePlatform(platform);
   final present = {
@@ -64,7 +75,7 @@ List<InstallStep> buildSetupPlan({
   final tools = _capabilityTools[capability] ?? const [];
   final steps = <InstallStep>[];
   for (final tool in tools) {
-    if (present[tool] == true) continue;
+    if (!force && present[tool] == true) continue;
     // docling/markitdown need uv; if uv is already present it won't be in the
     // list, which is fine — the uv-tool step still runs.
     steps.add(_stepFor(tool, os));

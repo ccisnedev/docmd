@@ -17,25 +17,22 @@ class RenderInput extends Input {
   RenderInput({required this.inputPath, required this.format});
 
   factory RenderInput.fromCliRequest(CliRequest req) {
-    final format = req.flagBool('pdf')
-        ? 'pdf'
-        : req.flagBool('pptx')
-            ? 'pptx'
-            : req.flagBool('xlsx')
-                ? 'xlsx'
-                : 'docx';
-
-    return RenderInput(inputPath: req.params['input'] ?? '', format: format);
+    return RenderInput(
+      inputPath: req.params['input'] ?? '',
+      format: req.flagBool('pdf') ? 'pdf' : 'docx',
+    );
   }
 
+  // No --pptx/--xlsx: those renderers do not exist, and a flag whose only
+  // behaviour is to reject its own use is worse than no flag — it advertises a
+  // capability, parses cleanly, and fails at the end. Add them back with the
+  // renderers, not before.
   static final List<CliParam> params = [
     CliParam.positional(
       'input',
       description: 'Markdown file or DocMD package to render',
     ),
     CliParam.boolean('pdf', description: 'Render to PDF'),
-    CliParam.boolean('pptx', description: 'Render to PPTX'),
-    CliParam.boolean('xlsx', description: 'Render to XLSX'),
   ];
 
   @override

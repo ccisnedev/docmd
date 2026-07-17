@@ -76,6 +76,7 @@ void main() {
 
       String? capturedExe;
       List<String>? capturedArgs;
+      String? capturedWorkingDirectory;
 
       try {
         final cmd = ImportCommand(
@@ -83,6 +84,7 @@ void main() {
           processRunner: (exe, args, {workingDirectory}) async {
             capturedExe = exe;
             capturedArgs = args;
+            capturedWorkingDirectory = workingDirectory;
 
             final outputIndex = args.indexOf('-o');
             File(args[outputIndex + 1])
@@ -95,11 +97,14 @@ void main() {
 
         final output = await cmd.execute();
 
-        expect(capturedExe, equals('pandoc'));
-        expect(
-          capturedArgs,
-          contains('--extract-media=${p.join(output.packagePath, 'assets')}'),
-        );
+        // The resolver returns a full path when pandoc is installed on the host
+        // and falls back to the bare name when it is not; either is this
+        // command's contract. Which binary gets picked is tool_locator's job.
+        expect(capturedExe, contains('pandoc'));
+        // Media is extracted via a *relative* dir with pandoc run inside the
+        // package, so no host-absolute path can reach the canonical document.
+        expect(capturedArgs, contains('--extract-media=assets'));
+        expect(capturedWorkingDirectory, equals(output.packagePath));
         expect(output.status, equals('converted'));
         expect(output.manifestPath, endsWith('manifest.yaml'));
         expect(

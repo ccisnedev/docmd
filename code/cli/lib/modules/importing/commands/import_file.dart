@@ -6,6 +6,7 @@ import 'package:cli_router/cli_router.dart';
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../src/ingestion/ingestion_backend.dart';
 import '../../../src/ingestion/ingestion_registry.dart';
 import '../../../src/package_layout.dart';
 import '../../../src/process_runner.dart';
@@ -67,6 +68,9 @@ class ImportOutput extends Output {
   final String canonicalDocumentPath;
   final String originalSourcePath;
   final String status;
+  final int mediaExtracted;
+  final int mediaReferenced;
+  final List<String> orphanedMedia;
 
   ImportOutput({
     required this.inputPath,
@@ -75,6 +79,9 @@ class ImportOutput extends Output {
     required this.canonicalDocumentPath,
     required this.originalSourcePath,
     required this.status,
+    this.mediaExtracted = 0,
+    this.mediaReferenced = 0,
+    this.orphanedMedia = const [],
   });
 
   @override
@@ -85,6 +92,11 @@ class ImportOutput extends Output {
     'canonicalDocumentPath': canonicalDocumentPath,
     'originalSourcePath': originalSourcePath,
     'status': status,
+    'media': {
+      'extracted': mediaExtracted,
+      'referenced': mediaReferenced,
+      'orphaned': orphanedMedia,
+    },
   };
 
   @override
@@ -99,6 +111,14 @@ class ImportOutput extends Output {
       '  manifest: $manifestPath',
       '  document: $canonicalDocumentPath',
       '  status: $status',
+      if (mediaExtracted > 0)
+        '  media: $mediaReferenced/$mediaExtracted referenced',
+      // Fidelity loss the user cannot otherwise see: these files are in the
+      // package but nothing points at them, so no render will include them.
+      if (orphanedMedia.isNotEmpty)
+        '  warning: ${orphanedMedia.length} extracted media file(s) are '
+            'unreferenced and will not appear in renders:',
+      for (final orphan in orphanedMedia) '    - $orphan',
     ].join('\n');
   }
 }
@@ -166,11 +186,25 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
     if (backend == null) {
       throw UnsupportedError('Unsupported import format: $sourceFormat');
     }
-    final result = await backend.ingest(
-      source: source,
-      format: sourceFormat,
-      layout: layout,
-    );
+
+    // An external engine failing is an operating condition, not a crash: report
+    // it through the error contract so --json consumers get an envelope instead
+    // of a Dart stack trace on exit 255.
+    final IngestionResult result;
+    try {
+      result = await backend.ingest(
+        source: source,
+        format: sourceFormat,
+        layout: layout,
+      );
+    } on ProcessException catch (e) {
+      throw CommandException(
+        code: 'ENGINE_FAILED',
+        message: e.message,
+        exitCode: ExitCode.apiError,
+        details: {'engine': backend.engineId, 'format': sourceFormat},
+      );
+    }
     final status = result.status;
 
     layout.writeManifest(
@@ -187,6 +221,9 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
       canonicalDocumentPath: layout.canonicalDocumentPath,
       originalSourcePath: p.join(layout.originalsDirPath, p.basename(source.path)),
       status: status,
+      mediaExtracted: result.mediaExtracted,
+      mediaReferenced: result.mediaReferenced,
+      orphanedMedia: result.orphanedMedia,
     );
   }
 

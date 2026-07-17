@@ -22,10 +22,17 @@ class DoclingPdfBackend implements IngestionBackend {
   final ProcessRunner _runProcess;
   final bool Function() _isAvailable;
 
-  DoclingPdfBackend({ProcessRunner? processRunner, bool Function()? isAvailable})
-    : _runProcess = processRunner ?? runProcess,
-      _isAvailable =
-          isAvailable ?? (() => resolveDoclingExecutable() != null);
+  final String? Function() _resolveExecutable;
+
+  DoclingPdfBackend({
+    ProcessRunner? processRunner,
+    String? Function()? executableResolver,
+    bool Function()? isAvailable,
+  }) : _runProcess = processRunner ?? runProcess,
+       _resolveExecutable = executableResolver ?? resolveDoclingExecutable,
+       _isAvailable =
+           isAvailable ??
+           (() => (executableResolver ?? resolveDoclingExecutable)() != null);
 
   @override
   String get engineId => 'docling';
@@ -47,7 +54,8 @@ class DoclingPdfBackend implements IngestionBackend {
   }) async {
     final tempDir = Directory.systemTemp.createTempSync('docmd_docling_');
     try {
-      final result = await _runProcess('docling', [
+      // Verified path, not the bare name — see MarkitdownPdfBackend.ingest.
+      final result = await _runProcess(_resolveExecutable() ?? 'docling', [
         source.path,
         '--to',
         'md',

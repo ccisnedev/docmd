@@ -103,9 +103,9 @@ stops matching.
 
 ## F5 — Round-trip silently drops every image (HIGH)
 
-Pandoc's gfm writer emits raw `<img>` HTML for images carrying width/height (12 of
-them here); pandoc's **docx writer silently drops raw HTML**. Import -> render
-therefore loses all imagery with no warning.
+Pandoc's gfm writer emits raw `<img>` HTML for images carrying width/height (25 tags
+over 18 distinct files here); pandoc's **docx writer silently drops raw HTML**. Import
+-> render therefore loses all imagery with no warning.
 
 Measured, same input:
 
@@ -120,9 +120,19 @@ the canonical Markdown genuinely Markdown rather than HTML-in-Markdown.
 
 ## F6 — Fidelity loss is never reported (MEDIUM)
 
-18 media files extracted, 12 referenced -> 6 orphans (the `.emf` vector objects, which
-pandoc extracts but cannot represent). Import prints `status: converted` with no
-signal. The user learns nothing was lost only by diffing file sizes.
+Import prints `status: converted` and nothing else. Whether the canonical document
+kept every image, or none of them, reads identically. Under F5 that silence hid total
+image loss; the user could only discover it by diffing file sizes.
+
+Corpus measurement (after instrumenting): this docx yields **18 extracted, 18
+referenced, 0 orphans**. An earlier estimate in this report of "6 orphans" was wrong —
+it came from a miscount of the `<img>` tags before the accounting existed. The `.emf`
+vector objects *are* referenced. The residual size gap between the original
+(1,835,570 B) and the round trip (1,667,847 B) is pandoc's re-encoding, not lost media.
+
+The reporting is still worth having: orphans are a real class of loss for other
+inputs, and "18/18 referenced" is the only cheap proof that an import kept what it
+found.
 
 **Fix:** report `media extracted / referenced / orphaned`; warn when orphans > 0.
 

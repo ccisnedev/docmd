@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -110,6 +111,41 @@ void main() {
         expect(
           File('${output.packagePath}/content/document.md').readAsStringSync(),
           contains('Imported from docx'),
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    // A failing external tool is an expected operating condition, not a bug in
+    // docmd. It must surface as the documented error envelope — a raw
+    // ProcessException escaping means a Dart stack trace and exit 255, which no
+    // --json consumer can read.
+    test('execute() reports a failing engine as a CommandException', () async {
+      final dir = Directory.systemTemp.createTempSync('docmd_import_toolfail_');
+      final file = File('${dir.path}/requirement.docx')..writeAsStringSync('stub');
+
+      try {
+        final cmd = ImportCommand(
+          ImportInput(inputPath: file.path),
+          processRunner: (exe, args, {workingDirectory}) async => ProcessResult(
+            0,
+            1,
+            '',
+            "ModuleNotFoundError: No module named 'markitdown'",
+          ),
+        );
+
+        await expectLater(
+          cmd.execute(),
+          throwsA(
+            isA<CommandException>()
+                .having((e) => e.code, 'code', 'ENGINE_FAILED')
+                .having((e) => e.exitCode, 'exitCode', ExitCode.apiError)
+                // The tool's own diagnostic is the useful part — keep it.
+                .having((e) => e.message, 'message', contains('ModuleNotFound'))
+                .having((e) => e.details?['engine'], 'engine', 'pandoc'),
+          ),
         );
       } finally {
         dir.deleteSync(recursive: true);

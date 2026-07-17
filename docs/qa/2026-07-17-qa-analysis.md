@@ -1,5 +1,18 @@
 # QA Analysis — docmd CLI 0.0.5
 
+> **Status (2026-07-17, branch `fix/qa-functional-tooling`).** F1–F7 and F9 are
+> fixed and verified against this corpus; the suite went 88 → 107 tests, all green,
+> `dart analyze` clean. F8 (pptx/xlsx semantic extraction) is deferred by decision —
+> it is a feature, not a defect, and `import` remains honest about it. F10 is open;
+> see the note at the end of that section.
+>
+> One defect below was found *during* the fix and is not in the original ten:
+> **F1b — resolution and execution were disconnected.** The locator picked the
+> working binary and the backends then invoked the bare tool name anyway, so PATH
+> re-selected the broken shim. Fixing F1 alone changed nothing on the real machine;
+> only F1+F1b together made PDF import work. The existing test asserted the bug
+> (`expect(capturedExe, equals('markitdown'))`).
+
 Date: 2026-07-17
 Corpus: `C:\Users\44358590\Code\lab\mi_proyecto_1` (1 docx, 1 pdf, 2 pptx, 2 md)
 Baseline: `dart analyze` clean, `dart test` = 88 passed / 1 skipped.
@@ -173,11 +186,27 @@ catch F4/F5 either.
 **Fix:** upgrade the docx mock to emit real pandoc output; add an image-bearing
 fixture.
 
-## F10 — `upgrade.dart` bypasses the DI seam (LOW)
+## F10 — `upgrade.dart` bypasses the DI seam (LOW) — OPEN
 
 `lib/modules/global/commands/upgrade.dart:395,412,419,449` call `Process.run`
 directly (powershell, tar, chmod) instead of the injected `ProcessRunner`. Those paths
 are untestable; `upgrade_test.dart` only covers what `UpgradeDeps` reaches.
+
+**Left open deliberately.** Widening `UpgradeDeps` is mechanical, but the code path it
+guards — downloading and unpacking a release, then replacing the running binary — is
+one this QA pass cannot exercise end to end without publishing a release. Changing the
+self-upgrade path on evidence I cannot obtain would trade a testability smell for a
+real risk of a CLI that cannot update itself. It wants its own change, with a release
+dry-run behind it.
+
+## A hazard worth recording: `soffice --version` hangs
+
+Discovered while fixing F1, by breaking the suite with it. Probing every tool for
+liveness looks obviously correct and is not: on Windows `soffice --version` never
+returns, which took `dart test` from ~1s to 5m16s and left orphaned `soffice.exe`
+processes. Functional probing is therefore opt-in per tool (`probeArgs`) and applied
+only to the Python console-scripts, where the shim-outlives-package failure actually
+exists. A regression test asserts LibreOffice is never executed during resolution.
 
 ## Not a defect — ruled out
 

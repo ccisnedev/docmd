@@ -19,20 +19,24 @@ class RenderInput extends Input {
   factory RenderInput.fromCliRequest(CliRequest req) {
     return RenderInput(
       inputPath: req.params['input'] ?? '',
-      format: req.flagBool('pdf') ? 'pdf' : 'docx',
+      format: req.flagBool('pdf')
+          ? 'pdf'
+          : req.flagBool('pptx')
+              ? 'pptx'
+              : 'docx',
     );
   }
 
-  // No --pptx/--xlsx: those renderers do not exist, and a flag whose only
-  // behaviour is to reject its own use is worse than no flag — it advertises a
-  // capability, parses cleanly, and fails at the end. Add them back with the
-  // renderers, not before.
+  // docx and pptx are native pandoc writers; pdf is pandoc→LibreOffice. No
+  // --xlsx: pandoc has no xlsx writer, so declaring it would only reject its
+  // own use. It returns with a real renderer, not before.
   static final List<CliParam> params = [
     CliParam.positional(
       'input',
       description: 'Markdown file or DocMD package to render',
     ),
     CliParam.boolean('pdf', description: 'Render to PDF'),
+    CliParam.boolean('pptx', description: 'Render to PPTX'),
   ];
 
   @override
@@ -125,10 +129,13 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
     final markdownSource = _resolveMarkdownSource()!;
     final outputPath = _inferOutputPath(input.inputPath, input.format);
 
-    if (input.format == 'docx') {
-      await _renderToDocx(markdownSource, outputPath);
-    } else {
-      await _renderToPdf(markdownSource, outputPath);
+    switch (input.format) {
+      case 'docx':
+        await _renderViaPandoc(markdownSource, outputPath, to: 'docx');
+      case 'pptx':
+        await _renderViaPandoc(markdownSource, outputPath, to: 'pptx');
+      default:
+        await _renderToPdf(markdownSource, outputPath);
     }
 
     return RenderOutput(
@@ -168,7 +175,13 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
     return p.join(parent, '$name.$format');
   }
 
-  Future<void> _renderToDocx(String markdownSource, String outputPath) async {
+  /// Renders through a native pandoc writer (docx, pptx). The resource path lets
+  /// pandoc resolve the package's extracted media when embedding images.
+  Future<void> _renderViaPandoc(
+    String markdownSource,
+    String outputPath, {
+    required String to,
+  }) async {
     Directory(p.dirname(outputPath)).createSync(recursive: true);
 
     final result = await _runProcess('pandoc', [
@@ -176,7 +189,7 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
       '-f',
       'markdown',
       '-t',
-      'docx',
+      to,
       '--resource-path',
       _resourcePathFor(markdownSource),
       '-o',
@@ -201,7 +214,7 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
     );
 
     try {
-      await _renderToDocx(markdownSource, tempDocxPath);
+      await _renderViaPandoc(markdownSource, tempDocxPath, to: 'docx');
 
       final outputDir = p.dirname(outputPath);
       Directory(outputDir).createSync(recursive: true);
@@ -254,4 +267,4 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
   }
 }
 
-const Set<String> _supportedFormats = {'docx', 'pdf'};
+const Set<String> _supportedFormats = {'docx', 'pptx', 'pdf'};

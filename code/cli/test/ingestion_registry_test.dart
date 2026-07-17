@@ -6,6 +6,7 @@ import 'package:docmd_cli/src/ingestion/markdown_passthrough_backend.dart';
 import 'package:docmd_cli/src/ingestion/markitdown_pdf_backend.dart';
 import 'package:docmd_cli/src/ingestion/pandoc_docx_backend.dart';
 import 'package:docmd_cli/src/ingestion/placeholder_backend.dart';
+import 'package:docmd_cli/src/ingestion/pptx_backend.dart';
 
 void main() {
   group('IngestionRegistry.defaults', () {
@@ -20,8 +21,12 @@ void main() {
       expect(registry.backendFor('docx'), isA<PandocDocxBackend>());
     });
 
-    test('routes pptx and xlsx to the placeholder backend', () {
-      expect(registry.backendFor('pptx'), isA<PlaceholderIngestionBackend>());
+    test('routes pptx to the native OOXML backend', () {
+      expect(registry.backendFor('pptx'), isA<PptxIngestionBackend>());
+    });
+
+    test('routes xlsx to the placeholder backend', () {
+      // No xlsx engine yet; the placeholder keeps the original recoverable.
       expect(registry.backendFor('xlsx'), isA<PlaceholderIngestionBackend>());
     });
 

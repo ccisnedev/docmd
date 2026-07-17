@@ -22,6 +22,7 @@ void main() {
       try {
         final backend = DoclingPdfBackend(
           isAvailable: () => true,
+          executableResolver: () => 'docling',
           // Simulate docling's real output shape: it writes `<stem>.md` into the
           // `--output` directory and, in referenced image mode, an artifacts
           // folder of images alongside it.
@@ -120,6 +121,9 @@ void main() {
       try {
         final backend = MarkitdownPdfBackend(
           isAvailable: () => true,
+          // Pin the resolver so the assertion below describes this backend's
+          // contract rather than whatever markitdown the host happens to have.
+          executableResolver: () => 'markitdown',
           // markitdown writes Markdown straight to the `-o` path (text-only).
           processRunner: (exe, args, {workingDirectory}) async {
             capturedExe = exe;
@@ -150,6 +154,45 @@ void main() {
       } finally {
         dir.deleteSync(recursive: true);
       }
+    });
+
+    // Regression: resolving a working binary is pointless if execution then goes
+    // back through PATH by bare name — a broken shim earlier on PATH would win
+    // and the tool locator's verification would be silently discarded.
+    test('runs the resolved executable rather than the bare name', () async {
+      final dir = Directory.systemTemp.createTempSync('docmd_markitdown_resolved_');
+      final source = File(p.join(dir.path, 'sample.pdf'))
+        ..writeAsStringSync('%PDF-1.7 stub');
+      final layout = DocmdPackageLayout(p.join(dir.path, 'sample.docmd'))
+        ..createSkeleton();
+
+      const resolvedPath = r'C:\Users\dev\.local\bin\markitdown.exe';
+      String? capturedExe;
+
+      try {
+        final backend = MarkitdownPdfBackend(
+          executableResolver: () => resolvedPath,
+          processRunner: (exe, args, {workingDirectory}) async {
+            capturedExe = exe;
+            final outputIndex = args.indexOf('-o');
+            File(args[outputIndex + 1])
+              ..createSync(recursive: true)
+              ..writeAsStringSync('# Sample\n');
+            return ProcessResult(0, 0, '', '');
+          },
+        );
+
+        expect(backend.isAvailable(), isTrue);
+        await backend.ingest(source: source, format: 'pdf', layout: layout);
+        expect(capturedExe, equals(resolvedPath));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('is unavailable when no working executable resolves', () {
+      final backend = MarkitdownPdfBackend(executableResolver: () => null);
+      expect(backend.isAvailable(), isFalse);
     });
   });
 }

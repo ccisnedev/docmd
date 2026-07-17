@@ -59,6 +59,10 @@ void main() {
       final deleted = <String>[];
       final downloads = <List<String>>[];
 
+      // A version that stays ahead of the real one across future bumps, so this
+      // "a newer release exists" test does not need editing every release.
+      const newer = '99.0.0';
+
       final output = await UpgradeCommand(
         UpgradeInput(),
         deps: UpgradeDeps(
@@ -66,7 +70,7 @@ void main() {
           homeDirectory: '/home/test',
           directoryExists: (path) => path == '/home/test/.docmd',
           fetchJson: (_, _) async => {
-            'tag_name': 'v0.0.6',
+            'tag_name': 'v$newer',
             'assets': [
               {
                 'name': 'docmd-linux-x64.tar.gz',
@@ -80,7 +84,7 @@ void main() {
           extractTarGz: (archivePath, destDir) async {
             extracted.add([archivePath, destDir]);
           },
-          execFile: (executable, arguments) async => '0.0.6',
+          execFile: (executable, arguments) async => newer,
           ensureDirectory: (path) async {
             createdDirectories.add(path);
           },
@@ -99,9 +103,9 @@ void main() {
 
       expect(output.status, equals('upgraded'));
       expect(output.upgraded, isTrue);
-      expect(output.newVersion, equals('0.0.6'));
+      expect(output.newVersion, equals(newer));
       expect(downloads.single.first, contains('docmd-linux-x64.tar.gz'));
-      expect(extracted.single, equals(['/tmp/docmd-0.0.6-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
+      expect(extracted.single, equals(['/tmp/docmd-$newer-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
       expect(chmodCalls.single, equals(['/home/test/.docmd/bin/docmd', '755']));
       expect(
         symlinks.single,
@@ -109,7 +113,7 @@ void main() {
       );
       expect(createdDirectories, contains('/home/test/.docmd'));
       expect(createdDirectories, contains('/home/test/.local/bin'));
-      expect(deleted, contains('/tmp/docmd-0.0.6-docmd-linux-x64.tar.gz'));
+      expect(deleted, contains('/tmp/docmd-$newer-docmd-linux-x64.tar.gz'));
     });
   });
 }

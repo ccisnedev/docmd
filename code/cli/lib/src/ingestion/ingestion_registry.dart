@@ -7,6 +7,7 @@ import 'markdown_passthrough_backend.dart';
 import 'markitdown_pdf_backend.dart';
 import 'pandoc_docx_backend.dart';
 import 'placeholder_backend.dart';
+import 'pptx_backend.dart';
 
 /// Selects an [IngestionBackend] by source format.
 ///
@@ -23,15 +24,16 @@ class IngestionRegistry {
   IngestionRegistry(this.backends);
 
   /// The default engine matrix: Markdown passthrough; Pandoc for `.docx`;
-  /// docling (default) then markitdown (fallback) for `.pdf`; and a placeholder
-  /// for formats without a real engine yet (pptx, xlsx) or PDF with no engine
-  /// installed.
+  /// docling (default) then markitdown (fallback) for `.pdf`; the native OOXML
+  /// reader for `.pptx`; and a placeholder for formats without a real engine yet
+  /// (xlsx) or PDF with no engine installed.
   factory IngestionRegistry.defaults({ProcessRunner? processRunner}) {
     return IngestionRegistry([
       MarkdownPassthroughBackend(),
       PandocDocxBackend(processRunner: processRunner),
       DoclingPdfBackend(processRunner: processRunner),
       MarkitdownPdfBackend(processRunner: processRunner),
+      PptxIngestionBackend(),
       PlaceholderIngestionBackend(),
     ]);
   }

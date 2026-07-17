@@ -1,10 +1,10 @@
 # QA Analysis — docmd CLI 0.0.5
 
-> **Status (2026-07-17, branch `fix/qa-functional-tooling`).** F1–F7 and F9 are
-> fixed and verified against this corpus; the suite went 88 → 107 tests, all green,
-> `dart analyze` clean. F8 (pptx/xlsx semantic extraction) is deferred by decision —
-> it is a feature, not a defect, and `import` remains honest about it. F10 is open;
-> see the note at the end of that section.
+> **Status (2026-07-17, branch `fix/qa-functional-tooling`).** F1–F7 and F9 are fixed
+> and verified against this corpus, and **F8 is done for pptx** — imported natively,
+> text and images per slide. The suite went 88 → 118 tests, all green, `dart analyze`
+> clean. xlsx stays a placeholder by decision, and F10 is open; see the notes in each
+> section.
 >
 > One defect below was found *during* the fix and is not in the original ten:
 > **F1b — resolution and execution were disconnected.** The locator picked the
@@ -164,13 +164,47 @@ A flag that exists solely to reject its own use is worse than an absent flag.
 **Fix:** either implement via LibreOffice (present on this machine) or remove the
 flags and the help claim. Do not ship a flag that only errors.
 
-## F8 — PPTX/XLSX import is a placeholder (MEDIUM, known)
+## F8 — PPTX/XLSX import is a placeholder (MEDIUM) — PPTX DONE, XLSX deferred
 
-`doctor` is honest here. `import` yields `status: package-only` and a stub document.
-The original is preserved in `assets/original/`, so no data loss. Two of six corpus
-files are pptx, so this is the corpus's largest functional gap.
+`doctor` was honest here. `import` yielded `status: package-only` and a stub document.
+Two of six corpus files are pptx, making it the corpus's largest functional gap.
 
-**Fix:** real extraction is a feature, not a bugfix — scope separately.
+**PPTX is now implemented natively** (`lib/src/ingestion/pptx_backend.dart`), reading
+the OOXML package directly. Each slide becomes a `## Slide N` section carrying that
+slide's text and images in on-slide order.
+
+Why not an existing engine — measured, not assumed:
+
+* **pandoc has no pptx reader.** It writes pptx; it cannot read it.
+* **markitdown parses pptx but its image links are unusable.** It references
+  pictures by *shape name* (`![](Imagen4.jpg)`) and extracts no files, so every link
+  dangles. Its text extraction is fine — but that is worth little here: the corpus
+  deck holds **123 characters of text across 13 slides and 19 images**. It is a deck
+  of app screenshots. For this corpus the images *are* the content.
+* **docling** would work but is a heavyweight Python/torch install for a format that
+  is a zip of XML.
+
+Reading the OOXML directly costs two pure-Dart packages (`archive`, `xml`), needs no
+engine on the machine, and makes pptx import the only capability that can never be
+"unavailable".
+
+Two things this surfaced that a naive reader gets wrong:
+
+1. **Slide order is not file order.** Running order lives in `presentation.xml`'s
+   `sldIdLst`; part names reflect creation order. The corpus deck's relationships are
+   stored scrambled (`rId8 -> slide7.xml` first), so numbering by file name would
+   reorder any deck that was ever reordered in PowerPoint. Covered by a test.
+2. **OOXML parts are UTF-8.** Reading them as raw code units turned *Información* into
+   *InformaciÃ³n* — caught on the real deck, then pinned by a test. A Spanish-language
+   corpus makes this a correctness bug, not a cosmetic one.
+
+Verified on both corpus decks: 13 slides/19 images and 19 slides/35 images, every
+reference resolving on disk, and the render round trip returning 3,437,878 bytes
+against a 3,573,503-byte original — the imagery survives.
+
+**XLSX remains a placeholder** by decision: a spreadsheet's meaning is cells and
+formulas, and flattening it into prose Markdown needs a design answer, not a parser.
+The original stays recoverable in `assets/original/`.
 
 ## F9 — Mock infidelity is the root cause of the blind spot (MEDIUM)
 

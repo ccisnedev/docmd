@@ -9,6 +9,7 @@ import '../../../src/ingestion/markdown_passthrough_backend.dart';
 import '../../../src/ingestion/markitdown_pdf_backend.dart';
 import '../../../src/ingestion/pandoc_docx_backend.dart';
 import '../../../src/ingestion/placeholder_backend.dart';
+import '../../../src/ingestion/pptx_backend.dart';
 import '../../../src/tool_locator.dart';
 import '../../../src/version.dart';
 import '../../../src/version_check.dart';
@@ -204,6 +205,7 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
       PandocDocxBackend(isAvailable: () => pandocPath != null),
       DoclingPdfBackend(isAvailable: () => doclingPath != null),
       MarkitdownPdfBackend(isAvailable: () => markitdownPath != null),
+      PptxIngestionBackend(),
       PlaceholderIngestionBackend(),
     ]);
 
@@ -260,7 +262,6 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
       case 'pdf':
         return 'Install a PDF engine: `docmd setup pdf` '
             '(docling recommended, or markitdown).';
-      case 'pptx':
       case 'xlsx':
         return 'Real extraction is planned; a dedicated engine is not wired yet.';
       default:

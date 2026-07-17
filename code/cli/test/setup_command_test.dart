@@ -21,9 +21,6 @@ void main() {
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: none,
-        resolveUv: none,
-        resolveDocling: none,
-        resolveMarkitdown: none,
         processRunner: (exe, args, {workingDirectory}) async {
           invocations += 1;
           return ProcessResult(0, 0, '', '');
@@ -46,9 +43,6 @@ void main() {
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: present,
-        resolveUv: present,
-        resolveDocling: present,
-        resolveMarkitdown: present,
         processRunner: (exe, args, {workingDirectory}) async {
           executed.add('$exe ${args.join(' ')}');
           return ProcessResult(0, 0, '', '');
@@ -70,9 +64,6 @@ void main() {
         platform: 'macos',
         resolvePandoc: present,
         resolveLibreOffice: present,
-        resolveUv: present,
-        resolveDocling: present,
-        resolveMarkitdown: present,
       );
 
       final output = await cmd.execute();
@@ -80,28 +71,19 @@ void main() {
       expect(output.toText(), contains('already installed'));
     });
 
-    test('stops after a failed uv install and reports non-zero exit', () async {
-      final executed = <String>[];
+    test('reports a non-zero exit when a planned step fails', () async {
       final cmd = SetupCommand(
         SetupInput(capability: 'all', apply: true),
         platform: 'linux',
-        resolvePandoc: present,
-        resolveLibreOffice: present,
-        resolveUv: none, // uv missing -> planned, and made to fail below
-        resolveDocling: none,
-        resolveMarkitdown: none,
-        processRunner: (exe, args, {workingDirectory}) async {
-          executed.add(exe);
-          // Fail the uv bootstrap; docling/markitdown must not be attempted.
-          return ProcessResult(0, exe == 'sh' ? 1 : 0, '', 'boom');
-        },
+        resolvePandoc: none,
+        resolveLibreOffice: none,
+        processRunner: (exe, args, {workingDirectory}) async =>
+            ProcessResult(0, exe == 'sudo' ? 1 : 0, '', 'boom'),
       );
 
       final output = await cmd.execute();
 
-      expect(output.results.last.tool, equals('uv'));
-      expect(output.results.last.ok, isFalse);
-      expect(executed, isNot(contains('uv'))); // docling/markitdown skipped
+      expect(output.allOk, isFalse);
       expect(output.exitCode, equals(1));
     });
   });

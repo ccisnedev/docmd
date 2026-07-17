@@ -1,10 +1,9 @@
 import 'package:test/test.dart';
 
-import 'package:docmd_cli/src/ingestion/docling_pdf_backend.dart';
 import 'package:docmd_cli/src/ingestion/ingestion_registry.dart';
 import 'package:docmd_cli/src/ingestion/markdown_passthrough_backend.dart';
-import 'package:docmd_cli/src/ingestion/markitdown_pdf_backend.dart';
 import 'package:docmd_cli/src/ingestion/pandoc_docx_backend.dart';
+import 'package:docmd_cli/src/ingestion/pdf_backend.dart';
 import 'package:docmd_cli/src/ingestion/placeholder_backend.dart';
 import 'package:docmd_cli/src/ingestion/pptx_backend.dart';
 
@@ -19,6 +18,10 @@ void main() {
 
     test('routes docx to the pandoc backend', () {
       expect(registry.backendFor('docx'), isA<PandocDocxBackend>());
+    });
+
+    test('routes pdf to the native pure-Dart backend', () {
+      expect(registry.backendFor('pdf'), isA<PdfIngestionBackend>());
     });
 
     test('routes pptx to the native OOXML backend', () {
@@ -58,45 +61,22 @@ void main() {
     });
   });
 
-  group('IngestionRegistry PDF engine selection', () {
-    IngestionRegistry pdfRegistry({
-      required bool docling,
-      required bool markitdown,
-    }) {
-      return IngestionRegistry([
-        MarkdownPassthroughBackend(),
-        DoclingPdfBackend(isAvailable: () => docling),
-        MarkitdownPdfBackend(isAvailable: () => markitdown),
+  group('IngestionRegistry backend selection', () {
+    test('prefers an available real backend over the fallback', () {
+      final registry = IngestionRegistry([
+        PandocDocxBackend(isAvailable: () => true),
         PlaceholderIngestionBackend(),
       ]);
-    }
-
-    test('prefers docling when it is available', () {
-      final backend =
-          pdfRegistry(docling: true, markitdown: true).backendFor('pdf');
-      expect(backend, isA<DoclingPdfBackend>());
-    });
-
-    test('falls back to markitdown when only markitdown is available', () {
-      final backend =
-          pdfRegistry(docling: false, markitdown: true).backendFor('pdf');
-      expect(backend, isA<MarkitdownPdfBackend>());
-    });
-
-    test('falls back to the placeholder when no PDF engine is available', () {
-      final backend =
-          pdfRegistry(docling: false, markitdown: false).backendFor('pdf');
-      expect(backend, isA<PlaceholderIngestionBackend>());
+      expect(registry.backendFor('docx'), isA<PandocDocxBackend>());
     });
 
     test('picks the first candidate when none is available and none is a fallback', () {
       final registry = IngestionRegistry([
-        DoclingPdfBackend(isAvailable: () => false),
-        MarkitdownPdfBackend(isAvailable: () => false),
+        PandocDocxBackend(isAvailable: () => false),
       ]);
       // No placeholder registered: return the preferred candidate so the caller
       // surfaces a precise engine-unavailable error, not "unsupported format".
-      expect(registry.backendFor('pdf'), isA<DoclingPdfBackend>());
+      expect(registry.backendFor('docx'), isA<PandocDocxBackend>());
     });
   });
 }

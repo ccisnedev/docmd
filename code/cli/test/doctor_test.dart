@@ -30,10 +30,6 @@ void main() {
         DoctorInput(),
         resolvePandocExecutable: () => '/usr/bin/pandoc',
         resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-        // Inject PDF engines explicitly so the report is deterministic and does
-        // not depend on what happens to be installed on the test machine.
-        resolveDoclingExecutable: () => null,
-        resolveMarkitdownExecutable: () => null,
         versionChecker: ({required currentVersion}) async =>
             const VersionCheckResult(updateAvailable: false),
       ).execute();
@@ -44,64 +40,29 @@ void main() {
       expect(byKey['import:md']!.available, isTrue);
       expect(byKey['import:docx']!.engine, equals('pandoc'));
       expect(byKey['import:docx']!.available, isTrue);
-      // With no PDF engine installed, pdf import falls back to the placeholder.
-      expect(byKey['import:pdf']!.available, isFalse);
-      expect(byKey['import:pdf']!.hint, isNotNull);
       expect(byKey['render:docx']!.available, isTrue);
       expect(byKey['render:pdf']!.available, isTrue);
       expect(output.toText(), contains('Capabilities'));
     });
 
-    test('reports docling as the PDF import engine when it is installed', () async {
+    test('pdf and pptx import are always available — no engine to install', () async {
+      // The pure-Dart engines have no external dependency, so their availability
+      // does not vary with what is installed.
       final output = await DoctorCommand(
         DoctorInput(),
-        resolvePandocExecutable: () => '/usr/bin/pandoc',
-        resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-        resolveDoclingExecutable: () => '/usr/bin/docling',
-        resolveMarkitdownExecutable: () => null,
+        resolvePandocExecutable: () => null,
+        resolveLibreOfficeExecutable: () => null,
         versionChecker: ({required currentVersion}) async =>
             const VersionCheckResult(updateAvailable: false),
       ).execute();
 
-      final pdf = output.capabilities
-          .firstWhere((c) => c.direction == 'import' && c.format == 'pdf');
-      expect(pdf.engine, equals('docling'));
-      expect(pdf.available, isTrue);
-    });
-
-    test('reports markitdown as the PDF engine when only markitdown is installed', () async {
-      final output = await DoctorCommand(
-        DoctorInput(),
-        resolvePandocExecutable: () => '/usr/bin/pandoc',
-        resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-        resolveDoclingExecutable: () => null,
-        resolveMarkitdownExecutable: () => '/usr/bin/markitdown',
-        versionChecker: ({required currentVersion}) async =>
-            const VersionCheckResult(updateAvailable: false),
-      ).execute();
-
-      final pdf = output.capabilities
-          .firstWhere((c) => c.direction == 'import' && c.format == 'pdf');
-      expect(pdf.engine, equals('markitdown'));
-      expect(pdf.available, isTrue);
-    });
-
-    test('PDF import is unavailable with a setup hint when no engine is installed', () async {
-      final output = await DoctorCommand(
-        DoctorInput(),
-        resolvePandocExecutable: () => '/usr/bin/pandoc',
-        resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-        resolveDoclingExecutable: () => null,
-        resolveMarkitdownExecutable: () => null,
-        versionChecker: ({required currentVersion}) async =>
-            const VersionCheckResult(updateAvailable: false),
-      ).execute();
-
-      final pdf = output.capabilities
-          .firstWhere((c) => c.direction == 'import' && c.format == 'pdf');
-      expect(pdf.available, isFalse);
-      expect(pdf.engine, equals('placeholder'));
-      expect(pdf.hint, contains('docmd setup pdf'));
+      final byKey = {
+        for (final c in output.capabilities) '${c.direction}:${c.format}': c,
+      };
+      expect(byKey['import:pdf']!.engine, equals('docmd'));
+      expect(byKey['import:pdf']!.available, isTrue);
+      expect(byKey['import:pptx']!.engine, equals('docmd'));
+      expect(byKey['import:pptx']!.available, isTrue);
     });
 
     test('import docx and pdf render become unavailable without pandoc', () async {

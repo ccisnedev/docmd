@@ -48,12 +48,61 @@ void main() {
       expect(toolsFor(plan), equals(['pandoc']));
     });
 
-    test('pdf capability provisions the docling import + render toolchain', () {
+    // markitdown is the engine `doctor` actually reports for PDF import, so a
+    // machine provisioned for "pdf" without it is not provisioned for PDF.
+    test('pdf capability provisions the whole PDF toolchain, markitdown included', () {
       final plan = buildSetupPlan(platform: 'linux', capability: 'pdf');
       expect(
         toolsFor(plan),
-        equals(['pandoc', 'libreoffice', 'uv', 'docling']),
+        equals(['pandoc', 'libreoffice', 'uv', 'docling', 'markitdown']),
       );
+    });
+
+    // The root help lists the tool names, so the tool names must work as
+    // arguments. Naming one repairs exactly it.
+    test('a single tool can be named as its own capability', () {
+      expect(
+        toolsFor(buildSetupPlan(platform: 'linux', capability: 'pandoc')),
+        equals(['pandoc']),
+      );
+      expect(
+        toolsFor(buildSetupPlan(platform: 'linux', capability: 'libreoffice')),
+        equals(['libreoffice']),
+      );
+    });
+
+    test('a uv-installed tool named alone still brings uv with it', () {
+      expect(
+        toolsFor(buildSetupPlan(platform: 'linux', capability: 'markitdown')),
+        equals(['uv', 'markitdown']),
+      );
+      expect(
+        toolsFor(buildSetupPlan(platform: 'linux', capability: 'docling')),
+        equals(['uv', 'docling']),
+      );
+    });
+
+    test('every capability name is a valid capability', () {
+      for (final capability in setupCapabilities) {
+        expect(
+          buildSetupPlan(platform: 'linux', capability: capability),
+          isNotEmpty,
+          reason: '"$capability" is offered but plans nothing',
+        );
+      }
+    });
+
+    // Without this, a tool that is present but broken can never be reinstalled:
+    // it is reported present, so it is skipped, so it stays broken.
+    test('force replans tools that are already present', () {
+      final plan = buildSetupPlan(
+        platform: 'linux',
+        capability: 'markitdown',
+        hasUv: true,
+        hasMarkitdown: true,
+        force: true,
+      );
+      expect(toolsFor(plan), equals(['uv', 'markitdown']));
     });
 
     test('already-installed tools are skipped', () {

@@ -48,6 +48,9 @@ String? resolvePandocExecutable({ToolLocatorDeps? deps}) {
   );
 }
 
+/// Deliberately unprobed: `soffice --version` never returns on Windows (it waits
+/// on the office process), which would hang every `doctor` run. LibreOffice is a
+/// self-contained native install, so presence is a reliable signal here.
 String? resolveLibreOfficeExecutable({ToolLocatorDeps? deps}) {
   final resolvedDeps = deps ?? ToolLocatorDeps();
   final pathContext = _pathContext(resolvedDeps.platform);
@@ -74,6 +77,11 @@ String? resolveLibreOfficeExecutable({ToolLocatorDeps? deps}) {
   );
 }
 
+/// Args used to prove a Python-installed engine actually runs. Both docling and
+/// markitdown ship as console-scripts: uninstalling the package can leave the
+/// shim behind, and a stale shim on `PATH` shadows a working install.
+const List<String> _pythonToolProbe = ['--version'];
+
 /// Resolves the `docling` PDF ingestion engine. Installed via `uv tool install
 /// docling`, so it is expected on `PATH` rather than in a fixed install dir.
 String? resolveDoclingExecutable({ToolLocatorDeps? deps}) {
@@ -81,6 +89,7 @@ String? resolveDoclingExecutable({ToolLocatorDeps? deps}) {
   return resolveExecutable(
     _isWindowsPlatform(resolvedDeps.platform) ? 'docling.exe' : 'docling',
     deps: resolvedDeps,
+    probeArgs: _pythonToolProbe,
   );
 }
 
@@ -92,6 +101,7 @@ String? resolveMarkitdownExecutable({ToolLocatorDeps? deps}) {
   return resolveExecutable(
     _isWindowsPlatform(resolvedDeps.platform) ? 'markitdown.exe' : 'markitdown',
     deps: resolvedDeps,
+    probeArgs: _pythonToolProbe,
   );
 }
 
@@ -104,42 +114,78 @@ String? resolveUvExecutable({ToolLocatorDeps? deps}) {
   );
 }
 
+/// Resolves [executable] to a path that exists on disk and, when [probeArgs] is
+/// supplied, actually runs.
+///
+/// Presence alone is not proof for Python console-scripts: the shim outlives its
+/// package, so `where` keeps reporting an executable whose every invocation exits
+/// non-zero. Passing [probeArgs] runs each candidate and takes the first that
+/// exits 0, so a working install is preferred over a broken one shadowing it.
+///
+/// [probeArgs] is opt-in rather than the default because probing is not free and
+/// not universally safe — notably `soffice --version` never returns on Windows.
+/// Only pass it for tools whose presence genuinely fails to imply function.
 String? resolveExecutable(
   String executable, {
   required ToolLocatorDeps deps,
   List<String> windowsCandidates = const [],
+  List<String>? probeArgs,
 }) {
-  final pathContext = _pathContext(deps.platform);
-
-  if (pathContext.isAbsolute(executable) && deps.fileExists(executable)) {
-    return executable;
-  }
-
-  final lookup = _isWindowsPlatform(deps.platform) ? 'where' : 'which';
-  final lookupResult = deps.runSync(lookup, [executable]);
-  if (lookupResult.exitCode == 0) {
-    final stdout = '${lookupResult.stdout ?? ''}';
-    for (final line in stdout.split(RegExp(r'\r?\n'))) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        continue;
-      }
-      if (deps.fileExists(trimmed)) {
-        return trimmed;
-      }
-      return trimmed;
+  for (final candidate in _candidatePaths(
+    executable,
+    deps: deps,
+    windowsCandidates: windowsCandidates,
+  )) {
+    if (!deps.fileExists(candidate)) {
+      continue;
     }
-  }
-
-  if (_isWindowsPlatform(deps.platform)) {
-    for (final candidate in windowsCandidates) {
-      if (deps.fileExists(candidate)) {
-        return candidate;
-      }
+    if (_isRunnable(candidate, probeArgs, deps)) {
+      return candidate;
     }
   }
 
   return null;
+}
+
+/// Candidate paths in preference order: an absolute path as given, then every
+/// `where`/`which` hit, then the known Windows install directories.
+Iterable<String> _candidatePaths(
+  String executable, {
+  required ToolLocatorDeps deps,
+  required List<String> windowsCandidates,
+}) sync* {
+  final pathContext = _pathContext(deps.platform);
+
+  if (pathContext.isAbsolute(executable)) {
+    yield executable;
+  } else {
+    final lookup = _isWindowsPlatform(deps.platform) ? 'where' : 'which';
+    final lookupResult = deps.runSync(lookup, [executable]);
+    if (lookupResult.exitCode == 0) {
+      for (final line in '${lookupResult.stdout ?? ''}'.split(RegExp(r'\r?\n'))) {
+        final trimmed = line.trim();
+        if (trimmed.isNotEmpty) {
+          yield trimmed;
+        }
+      }
+    }
+  }
+
+  if (_isWindowsPlatform(deps.platform)) {
+    yield* windowsCandidates;
+  }
+}
+
+bool _isRunnable(String executable, List<String>? probeArgs, ToolLocatorDeps deps) {
+  if (probeArgs == null) {
+    return true;
+  }
+  try {
+    return deps.runSync(executable, probeArgs).exitCode == 0;
+  } on ProcessException {
+    // The OS refused to start it at all — same outcome as a failed probe.
+    return false;
+  }
 }
 
 p.Context _pathContext(String platform) {

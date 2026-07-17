@@ -10,7 +10,23 @@ class IngestionResult {
   /// `copied` | `converted` | `package-only`.
   final String status;
 
-  const IngestionResult(this.status);
+  /// Media files the engine wrote into the package's assets directory.
+  final int mediaExtracted;
+
+  /// How many of those the canonical document actually references.
+  final int mediaReferenced;
+
+  /// Package-relative paths of extracted media nothing references. These are
+  /// real fidelity loss — usually vector objects the engine can extract but
+  /// cannot express in Markdown — so they are surfaced rather than swallowed.
+  final List<String> orphanedMedia;
+
+  const IngestionResult(
+    this.status, {
+    this.mediaExtracted = 0,
+    this.mediaReferenced = 0,
+    this.orphanedMedia = const [],
+  });
 }
 
 /// A pluggable engine that ingests one or more source formats into a DocMD

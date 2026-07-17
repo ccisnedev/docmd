@@ -1,15 +1,19 @@
 name: docmd_cli
 description: >
   CLI runtime for DocMD — import, validate, and render Markdown-first document packages.
-version: 0.0.5
+version: 0.1.0
 
 environment:
   sdk: ^3.8.1
 
 dependencies:
+  # PPTX is an OOXML zip: `archive` opens it, `xml` reads the slide parts. Both
+  # are pure Dart, so pptx import needs no external engine on the machine.
+  archive: ^4.0.0
   cli_router: ^0.1.0
   modular_cli_sdk: ^0.3.3
   path: ^1.9.1
+  xml: ^6.5.0
 
 dev_dependencies:
   lints: ^6.1.0

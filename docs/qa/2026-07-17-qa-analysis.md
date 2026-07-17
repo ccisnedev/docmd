@@ -1,4 +1,7 @@
-# QA Analysis — docmd CLI 0.0.5
+# QA Analysis — docmd CLI 0.0.5 → 0.1.0
+
+<!-- Analysis was performed against the 0.0.5 baseline; the fixes it drove ship as 0.1.0. -->
+
 
 > **Status (2026-07-17, branch `fix/qa-functional-tooling`).** F1–F7 and F9 are fixed
 > and verified against this corpus, and **F8 is done for pptx** — imported natively,

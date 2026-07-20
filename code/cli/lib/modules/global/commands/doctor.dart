@@ -3,11 +3,10 @@ library;
 import 'package:cli_router/cli_router.dart';
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 
-import '../../../src/ingestion/docling_pdf_backend.dart';
 import '../../../src/ingestion/ingestion_registry.dart';
 import '../../../src/ingestion/markdown_passthrough_backend.dart';
-import '../../../src/ingestion/markitdown_pdf_backend.dart';
 import '../../../src/ingestion/pandoc_docx_backend.dart';
+import '../../../src/ingestion/pdf_backend.dart';
 import '../../../src/ingestion/placeholder_backend.dart';
 import '../../../src/ingestion/pptx_backend.dart';
 import '../../../src/tool_locator.dart';
@@ -139,21 +138,15 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
 
   final String? Function() _resolvePandocExecutable;
   final String? Function() _resolveLibreOfficeExecutable;
-  final String? Function() _resolveDoclingExecutable;
-  final String? Function() _resolveMarkitdownExecutable;
   final Future<VersionCheckResult> Function({required String currentVersion}) _versionChecker;
 
   DoctorCommand(
     this.input, {
     String? Function()? resolvePandocExecutable,
     String? Function()? resolveLibreOfficeExecutable,
-    String? Function()? resolveDoclingExecutable,
-    String? Function()? resolveMarkitdownExecutable,
     Future<VersionCheckResult> Function({required String currentVersion})? versionChecker,
   }) : _resolvePandocExecutable = resolvePandocExecutable ?? resolvePandocExecutableDefault,
        _resolveLibreOfficeExecutable = resolveLibreOfficeExecutable ?? resolveLibreOfficeExecutableDefault,
-       _resolveDoclingExecutable = resolveDoclingExecutable ?? resolveDoclingExecutableDefault,
-       _resolveMarkitdownExecutable = resolveMarkitdownExecutable ?? resolveMarkitdownExecutableDefault,
        _versionChecker = versionChecker ?? checkLatestVersion;
 
   @override
@@ -163,8 +156,6 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
   Future<DoctorOutput> execute() async {
     final pandocPath = _resolvePandocExecutable();
     final libreOfficePath = _resolveLibreOfficeExecutable();
-    final doclingPath = _resolveDoclingExecutable();
-    final markitdownPath = _resolveMarkitdownExecutable();
     final versionResult = await _versionChecker(currentVersion: docmdVersion);
 
     return DoctorOutput(
@@ -179,8 +170,6 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
       capabilities: _capabilities(
         pandocPath: pandocPath,
         libreOfficePath: libreOfficePath,
-        doclingPath: doclingPath,
-        markitdownPath: markitdownPath,
       ),
       currentVersion: docmdVersion,
       latestVersion: versionResult.latestVersion,
@@ -197,14 +186,11 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
   List<Capability> _capabilities({
     required String? pandocPath,
     required String? libreOfficePath,
-    required String? doclingPath,
-    required String? markitdownPath,
   }) {
     final registry = IngestionRegistry([
       MarkdownPassthroughBackend(),
       PandocDocxBackend(isAvailable: () => pandocPath != null),
-      DoclingPdfBackend(isAvailable: () => doclingPath != null),
-      MarkitdownPdfBackend(isAvailable: () => markitdownPath != null),
+      PdfIngestionBackend(),
       PptxIngestionBackend(),
       PlaceholderIngestionBackend(),
     ]);
@@ -259,9 +245,6 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
     switch (format) {
       case 'docx':
         return _pandocHint;
-      case 'pdf':
-        return 'Install a PDF engine: `docmd setup pdf` '
-            '(docling recommended, or markitdown).';
       case 'xlsx':
         return 'Real extraction is planned; a dedicated engine is not wired yet.';
       default:
@@ -278,7 +261,3 @@ class DoctorCommand implements Command<DoctorInput, DoctorOutput> {
 String? resolvePandocExecutableDefault() => resolvePandocExecutable();
 
 String? resolveLibreOfficeExecutableDefault() => resolveLibreOfficeExecutable();
-
-String? resolveDoclingExecutableDefault() => resolveDoclingExecutable();
-
-String? resolveMarkitdownExecutableDefault() => resolveMarkitdownExecutable();

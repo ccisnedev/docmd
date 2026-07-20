@@ -17,8 +17,44 @@ void main() {
       final file = File('${dir.path}/draft.md')..writeAsStringSync('# Draft');
 
       try {
-        final cmd = RenderCommand(RenderInput(inputPath: file.path, format: 'pptx'));
+        // xlsx has no renderer; pptx now does, so it is no longer the example.
+        final cmd = RenderCommand(RenderInput(inputPath: file.path, format: 'xlsx'));
         expect(cmd.validate(), contains('Unsupported output format'));
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('execute() renders markdown inputs to pptx through pandoc', () async {
+      final dir = Directory.systemTemp.createTempSync('docmd_render_pptx_');
+      final file = File('${dir.path}/deck.md')..writeAsStringSync('# Slide one');
+
+      String? capturedExe;
+      List<String>? capturedArgs;
+
+      try {
+        final cmd = RenderCommand(
+          RenderInput(inputPath: file.path, format: 'pptx'),
+          processRunner: (exe, args, {workingDirectory}) async {
+            capturedExe = exe;
+            capturedArgs = args;
+
+            final outputIndex = args.indexOf('-o');
+            File(args[outputIndex + 1])
+              ..createSync(recursive: true)
+              ..writeAsStringSync('pptx binary');
+
+            return ProcessResult(0, 0, '', '');
+          },
+        );
+        final output = await cmd.execute();
+
+        // pptx is a native pandoc writer — same path as docx, not LibreOffice.
+        expect(capturedExe, equals('pandoc'));
+        expect(capturedArgs, containsAllInOrder(['-t', 'pptx']));
+        expect(output.outputPath, endsWith('deck.pptx'));
+        expect(output.status, equals('rendered'));
+        expect(File(output.outputPath).existsSync(), isTrue);
       } finally {
         dir.deleteSync(recursive: true);
       }

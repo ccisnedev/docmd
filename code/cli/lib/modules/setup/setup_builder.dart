@@ -6,7 +6,7 @@ void buildSetupModule(ModuleBuilder m) {
   m.command<SetupInput, SetupOutput>(
     '<capability>',
     (req) => SetupCommand(SetupInput.fromCliRequest(req)),
-    description: 'Install the tools DocMD needs (pandoc, LibreOffice, docling, markitdown)',
+    description: 'Install the tools DocMD needs (pandoc, LibreOffice)',
     params: SetupInput.params,
   );
 }

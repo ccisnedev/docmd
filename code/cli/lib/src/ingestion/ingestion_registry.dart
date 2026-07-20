@@ -1,11 +1,10 @@
 library;
 
 import '../process_runner.dart';
-import 'docling_pdf_backend.dart';
 import 'ingestion_backend.dart';
 import 'markdown_passthrough_backend.dart';
-import 'markitdown_pdf_backend.dart';
 import 'pandoc_docx_backend.dart';
+import 'pdf_backend.dart';
 import 'placeholder_backend.dart';
 import 'pptx_backend.dart';
 
@@ -23,16 +22,16 @@ class IngestionRegistry {
 
   IngestionRegistry(this.backends);
 
-  /// The default engine matrix: Markdown passthrough; Pandoc for `.docx`;
-  /// docling (default) then markitdown (fallback) for `.pdf`; the native OOXML
-  /// reader for `.pptx`; and a placeholder for formats without a real engine yet
-  /// (xlsx) or PDF with no engine installed.
+  /// The default engine matrix, all pure Dart or a single well-behaved binary:
+  /// Markdown passthrough; Pandoc for `.docx`; the native reader for `.pdf`; the
+  /// native OOXML reader for `.pptx`; and a placeholder for formats without a
+  /// real engine yet (xlsx). No Python engines: the PDF path reads the text
+  /// layer directly and leaves scans/OCR to a downstream model.
   factory IngestionRegistry.defaults({ProcessRunner? processRunner}) {
     return IngestionRegistry([
       MarkdownPassthroughBackend(),
       PandocDocxBackend(processRunner: processRunner),
-      DoclingPdfBackend(processRunner: processRunner),
-      MarkitdownPdfBackend(processRunner: processRunner),
+      PdfIngestionBackend(),
       PptxIngestionBackend(),
       PlaceholderIngestionBackend(),
     ]);

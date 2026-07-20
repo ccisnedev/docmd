@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 import '../package_layout.dart';
 import 'ingestion_backend.dart';
 
-/// Fallback for formats without real semantic extraction yet (pdf, pptx, xlsx).
+/// Fallback for formats without real semantic extraction yet (xlsx).
 ///
 /// The original file is still preserved in `assets/original/` by the import
 /// command; this backend only writes a placeholder canonical document. It is
@@ -17,8 +17,10 @@ class PlaceholderIngestionBackend implements IngestionBackend {
   @override
   String get engineId => 'placeholder';
 
+  // pdf and pptx now have real native engines; xlsx is the only format still
+  // without semantic extraction.
   @override
-  Set<String> get formats => const {'pdf', 'pptx', 'xlsx'};
+  Set<String> get formats => const {'xlsx'};
 
   @override
   bool isAvailable() => false;

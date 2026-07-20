@@ -41,17 +41,18 @@ void main() {
       expect(err, contains('unknown option --bogus'));
     });
 
-    // --pptx/--xlsx used to parse and then always fail with "Unsupported output
-    // format". A flag that exists only to reject its own use advertises a
-    // capability docmd does not have; better to not declare it until the
-    // renderer exists.
-    test('render does not advertise renderers that do not exist', () async {
-      for (final flag in ['--pptx', '--xlsx']) {
-        final (code, err) = await _run(['render', missing, flag]);
-        expect(code, 7);
-        expect(err, contains('unknown option $flag'));
-        expect(err, isNot(contains('Unsupported output format')));
-      }
+    // --pptx is a real renderer (pandoc's native pptx writer), so it must reach
+    // validation, not flag-rejection. --xlsx has no renderer and must stay an
+    // unknown option rather than parse and then fail at the end.
+    test('render advertises pptx but not xlsx', () async {
+      final (pptxCode, pptxErr) = await _run(['render', missing, '--pptx']);
+      expect(pptxErr, isNot(contains('unknown option --pptx')));
+      expect(pptxCode, 7); // fails on the missing input, not on the flag
+      expect(pptxErr, contains('not found'));
+
+      final (xlsxCode, xlsxErr) = await _run(['render', missing, '--xlsx']);
+      expect(xlsxCode, 7);
+      expect(xlsxErr, contains('unknown option --xlsx'));
     });
 
     test('import rejects an unknown option', () async {

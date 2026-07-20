@@ -32,7 +32,7 @@ class SetupInput extends Input {
       'capability',
       description:
           'What to provision: a capability (all, pdf, docx) or a single tool '
-          '(pandoc, libreoffice, uv, docling, markitdown). Default: all',
+          '(pandoc, libreoffice). Default: all',
     ),
     CliParam.boolean(
       'plan',
@@ -145,9 +145,6 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
   final ProcessRunner _runProcess;
   final String? Function() _resolvePandoc;
   final String? Function() _resolveLibreOffice;
-  final String? Function() _resolveUv;
-  final String? Function() _resolveDocling;
-  final String? Function() _resolveMarkitdown;
 
   SetupCommand(
     this.input, {
@@ -155,18 +152,11 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
     ProcessRunner? processRunner,
     String? Function()? resolvePandoc,
     String? Function()? resolveLibreOffice,
-    String? Function()? resolveUv,
-    String? Function()? resolveDocling,
-    String? Function()? resolveMarkitdown,
   }) : _platform = platform ?? Platform.operatingSystem,
        _runProcess = processRunner ?? runProcess,
        _resolvePandoc = resolvePandoc ?? (() => resolvePandocExecutable()),
        _resolveLibreOffice =
-           resolveLibreOffice ?? (() => resolveLibreOfficeExecutable()),
-       _resolveUv = resolveUv ?? (() => resolveUvExecutable()),
-       _resolveDocling = resolveDocling ?? (() => resolveDoclingExecutable()),
-       _resolveMarkitdown =
-           resolveMarkitdown ?? (() => resolveMarkitdownExecutable());
+           resolveLibreOffice ?? (() => resolveLibreOfficeExecutable());
 
   @override
   String? validate() {
@@ -184,9 +174,6 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
       capability: input.capability,
       hasPandoc: _resolvePandoc() != null,
       hasLibreOffice: _resolveLibreOffice() != null,
-      hasUv: _resolveUv() != null,
-      hasDocling: _resolveDocling() != null,
-      hasMarkitdown: _resolveMarkitdown() != null,
       force: input.force,
     );
 
@@ -199,11 +186,6 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
           command: step.display,
           exitCode: result.exitCode,
         ));
-        // Stop after a failed uv install: the uv-tool steps that follow would
-        // fail anyway without uv on PATH.
-        if (result.exitCode != 0 && step.tool == 'uv') {
-          break;
-        }
       }
     }
 

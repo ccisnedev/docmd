@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.2.0 — 2026-07-20
+
+Repositions DocMD as an ultralight LLM-ingestion tool: import needs no Python and
+nothing heavy to install. PDF and PPTX are read directly in pure Dart; only Pandoc
+(docx + all render) and LibreOffice (PDF render) remain, both single, well-behaved
+binaries.
+
+### Added
+
+- **Native pure-Dart PDF import**, replacing the Python engines. It recovers the
+  text layer (glyph codes → Unicode via each font's `/ToUnicode` CMap, detecting 1-
+  vs 2-byte code width) and extracts embedded JPEG images, referencing them like
+  every other format. No OCR and no page rasterization by design: a scan or vector
+  page has no recoverable text layer and is left to a downstream vision model.
+  Unsupported image encodings are noted in the document rather than dropped silently.
+- **`render --pptx`** — Markdown to PowerPoint via Pandoc's native writer. Render now
+  targets docx, pptx, and pdf.
+
+### Removed
+
+- **markitdown and docling** as PDF import engines, and everything that provisioned
+  them: `docmd setup` no longer installs uv/docling/markitdown, and `doctor` no
+  longer reports them. `docmd setup` now provisions only pandoc and libreoffice.
+  (The `bench` command keeps them as optional external comparators when present, so
+  `docmd vs markitdown` can still be measured — a benchmark baseline, not a runtime
+  dependency.)
+
+### Notes
+
+- `import pdf` and `import pptx` are always available now — pure Dart, nothing to
+  install, so nothing to be missing.
+- Still deferred: XLSX import (placeholder, original preserved); PDF images in
+  non-JPEG encodings (reported, not yet re-encoded to PNG); OCR/scanned-page
+  rasterization (left to the model).
+
 ## 0.1.0 — 2026-07-17
 
 Makes the CLI functional for everything it advertises, verified end to end against a

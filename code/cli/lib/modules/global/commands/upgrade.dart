@@ -7,6 +7,7 @@ import 'package:cli_router/cli_router.dart';
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../src/platform/platform_ops.dart';
 import '../../../src/version.dart';
 import '../../../src/version_check.dart';
 
@@ -76,12 +77,10 @@ typedef DownloadReleaseAsset = Future<void> Function(
   String destPath,
   Map<String, String> headers,
 );
-typedef ExtractArchive = Future<void> Function(String archivePath, String destDir);
 typedef ExecFileText = Future<String> Function(String executable, List<String> arguments);
 typedef RenamePath = Future<void> Function(String fromPath, String toPath);
 typedef DeletePath = Future<void> Function(String path);
 typedef EnsureDirectory = Future<void> Function(String path);
-typedef ChmodPath = Future<void> Function(String path, String mode);
 typedef EnsureSymlink = Future<void> Function(String targetPath, String linkPath);
 
 class UpgradeDeps {
@@ -93,15 +92,16 @@ class UpgradeDeps {
   final bool Function(String path) fileExists;
   final FetchReleaseJson fetchJson;
   final DownloadReleaseAsset downloadFile;
-  final ExtractArchive extractZip;
-  final ExtractArchive extractTarGz;
   final ExecFileText execFile;
   final RenamePath renamePath;
   final DeletePath deletePath;
   final EnsureDirectory ensureDirectory;
-  final ChmodPath chmodPath;
   final EnsureSymlink ensureSymlink;
   final String Function() tempDirectoryPath;
+
+  /// The platform-varying shell operations (extract, chmod, asset naming). Null
+  /// only when the platform is unsupported.
+  final PlatformOps? platformOps;
 
   UpgradeDeps({
     String? platform,
@@ -112,30 +112,27 @@ class UpgradeDeps {
     bool Function(String path)? fileExists,
     FetchReleaseJson? fetchJson,
     DownloadReleaseAsset? downloadFile,
-    ExtractArchive? extractZip,
-    ExtractArchive? extractTarGz,
     ExecFileText? execFile,
     RenamePath? renamePath,
     DeletePath? deletePath,
     EnsureDirectory? ensureDirectory,
-    ChmodPath? chmodPath,
     EnsureSymlink? ensureSymlink,
     String Function()? tempDirectoryPath,
+    PlatformOps? platformOps,
   }) : platform = platform ?? Platform.operatingSystem,
        resolvedExecutable = resolvedExecutable ?? Platform.resolvedExecutable,
        directoryExists = directoryExists ?? ((path) => Directory(path).existsSync()),
        fileExists = fileExists ?? ((path) => File(path).existsSync()),
        fetchJson = fetchJson ?? _fetchJson,
        downloadFile = downloadFile ?? _downloadFile,
-       extractZip = extractZip ?? _extractZip,
-       extractTarGz = extractTarGz ?? _extractTarGz,
        execFile = execFile ?? _execFile,
        renamePath = renamePath ?? _renamePath,
        deletePath = deletePath ?? _deletePath,
        ensureDirectory = ensureDirectory ?? _ensureDirectory,
-       chmodPath = chmodPath ?? _chmodPath,
        ensureSymlink = ensureSymlink ?? _ensureSymlink,
-       tempDirectoryPath = tempDirectoryPath ?? (() => Directory.systemTemp.path);
+       tempDirectoryPath = tempDirectoryPath ?? (() => Directory.systemTemp.path),
+       platformOps = platformOps ??
+           PlatformOps.forPlatform(platform ?? Platform.operatingSystem);
 }
 
 class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
@@ -152,13 +149,14 @@ class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
   @override
   Future<UpgradeOutput> execute() async {
     final paths = _pathContext(_deps.platform);
+    final platformOps = _deps.platformOps;
     final installPath = _resolveManagedInstallPath(_deps);
     final binaryPath = _resolveManagedBinaryPath(_deps);
-    final assetName = _resolveAssetName(_deps.platform);
 
-    if (installPath == null || binaryPath == null || assetName == null) {
+    if (platformOps == null || installPath == null || binaryPath == null) {
       throw UnsupportedError('Unsupported platform: ${_deps.platform}');
     }
+    final assetName = platformOps.assetName;
 
     if (!_deps.directoryExists(installPath)) {
       return UpgradeOutput(
@@ -229,12 +227,10 @@ class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
     }
 
     await _deps.ensureDirectory(installPath);
-    if (_deps.platform == 'windows') {
-      await _deps.extractZip(archivePath, installPath);
-    } else {
-      await _deps.extractTarGz(archivePath, installPath);
-      await _deps.chmodPath(binaryPath, '755');
+    await platformOps.expandArchive(archivePath, installPath);
+    await platformOps.makeExecutable(binaryPath); // no-op on Windows
 
+    if (_deps.platform != 'windows' && _deps.platform != 'win32') {
       final linkPath = paths.join(_requireHomeDirectory(_deps), '.local', 'bin', 'docmd');
       await _deps.ensureDirectory(paths.dirname(linkPath));
       await _deps.ensureSymlink(binaryPath, linkPath);
@@ -267,18 +263,6 @@ class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
   }
 }
 
-String? _resolveAssetName(String platform) {
-  switch (platform) {
-    case 'windows':
-    case 'win32':
-      return 'docmd-windows-x64.zip';
-    case 'linux':
-      return 'docmd-linux-x64.tar.gz';
-    default:
-      return null;
-  }
-}
-
 String? _resolveManagedInstallPath(UpgradeDeps deps) {
   final paths = _pathContext(deps.platform);
 
@@ -308,7 +292,7 @@ String? _resolveManagedBinaryPath(UpgradeDeps deps) {
   return paths.join(
     installPath,
     'bin',
-    deps.platform == 'windows' || deps.platform == 'win32' ? 'docmd.exe' : 'docmd',
+    deps.platformOps?.binaryName ?? 'docmd',
   );
 }
 
@@ -395,30 +379,6 @@ Future<void> _downloadFile(
   }
 }
 
-Future<void> _extractZip(String archivePath, String destDir) async {
-  final result = await Process.run('powershell', [
-    '-NoProfile',
-    '-Command',
-    "Expand-Archive -Path '$archivePath' -DestinationPath '$destDir' -Force",
-  ]);
-
-  if (result.exitCode != 0) {
-    throw ProcessException(
-      'powershell',
-      ['Expand-Archive', archivePath, destDir],
-      '${result.stderr}'.trim(),
-      result.exitCode,
-    );
-  }
-}
-
-Future<void> _extractTarGz(String archivePath, String destDir) async {
-  final result = await Process.run('tar', ['xzf', archivePath, '-C', destDir]);
-  if (result.exitCode != 0) {
-    throw ProcessException('tar', ['xzf', archivePath, '-C', destDir], '${result.stderr}'.trim(), result.exitCode);
-  }
-}
-
 Future<String> _execFile(String executable, List<String> arguments) async {
   final result = await Process.run(executable, arguments);
   if (result.exitCode != 0) {
@@ -447,13 +407,6 @@ Future<void> _deletePath(String path) async {
 
 Future<void> _ensureDirectory(String path) async {
   await Directory(path).create(recursive: true);
-}
-
-Future<void> _chmodPath(String path, String mode) async {
-  final result = await Process.run('chmod', [mode, path]);
-  if (result.exitCode != 0) {
-    throw ProcessException('chmod', [mode, path], '${result.stderr}'.trim(), result.exitCode);
-  }
 }
 
 Future<void> _ensureSymlink(String targetPath, String linkPath) async {

@@ -1,7 +1,31 @@
 import 'package:test/test.dart';
 
 import 'package:docmd_cli/modules/global/commands/upgrade.dart';
+import 'package:docmd_cli/src/platform/platform_ops.dart';
 import 'package:docmd_cli/src/version.dart';
+
+/// Records the platform operations the upgrade flow drives, so the test can
+/// assert what got extracted and made executable without touching the OS.
+class _FakePlatformOps implements PlatformOps {
+  final List<List<String>> expanded = [];
+  final List<String> executables = [];
+
+  @override
+  String get assetName => 'docmd-linux-x64.tar.gz';
+
+  @override
+  String get binaryName => 'docmd';
+
+  @override
+  Future<void> expandArchive(String archivePath, String destDir) async {
+    expanded.add([archivePath, destDir]);
+  }
+
+  @override
+  Future<void> makeExecutable(String path) async {
+    executables.add(path);
+  }
+}
 
 void main() {
   group('Upgrade Command', () {
@@ -54,10 +78,9 @@ void main() {
     test('downloads and applies a newer Linux release', () async {
       final createdDirectories = <String>[];
       final symlinks = <List<String>>[];
-      final extracted = <List<String>>[];
-      final chmodCalls = <List<String>>[];
       final deleted = <String>[];
       final downloads = <List<String>>[];
+      final platformOps = _FakePlatformOps();
 
       // A version that stays ahead of the real one across future bumps, so this
       // "a newer release exists" test does not need editing every release.
@@ -68,6 +91,7 @@ void main() {
         deps: UpgradeDeps(
           platform: 'linux',
           homeDirectory: '/home/test',
+          platformOps: platformOps,
           directoryExists: (path) => path == '/home/test/.docmd',
           fetchJson: (_, _) async => {
             'tag_name': 'v$newer',
@@ -81,18 +105,12 @@ void main() {
           downloadFile: (url, destPath, headers) async {
             downloads.add([url, destPath, headers['User-Agent'] ?? '']);
           },
-          extractTarGz: (archivePath, destDir) async {
-            extracted.add([archivePath, destDir]);
-          },
           // Production reality: `docmd version` has no toText(), so the binary
           // prints the labelled JSON "version: 99.0.0". The reported version must
           // NOT be scraped from this — it comes from the release tag.
           execFile: (executable, arguments) async => 'version: $newer',
           ensureDirectory: (path) async {
             createdDirectories.add(path);
-          },
-          chmodPath: (path, mode) async {
-            chmodCalls.add([path, mode]);
           },
           ensureSymlink: (targetPath, linkPath) async {
             symlinks.add([targetPath, linkPath]);
@@ -110,8 +128,12 @@ void main() {
       // The upgrade line shows the clean tag version, not "version: 99.0.0".
       expect(output.toText(), equals('Upgraded: $docmdVersion -> $newer'));
       expect(downloads.single.first, contains('docmd-linux-x64.tar.gz'));
-      expect(extracted.single, equals(['/tmp/docmd-$newer-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
-      expect(chmodCalls.single, equals(['/home/test/.docmd/bin/docmd', '755']));
+      // Extraction and the execute bit go through the platform seam.
+      expect(
+        platformOps.expanded.single,
+        equals(['/tmp/docmd-$newer-docmd-linux-x64.tar.gz', '/home/test/.docmd']),
+      );
+      expect(platformOps.executables.single, equals('/home/test/.docmd/bin/docmd'));
       expect(
         symlinks.single,
         equals(['/home/test/.docmd/bin/docmd', '/home/test/.local/bin/docmd']),

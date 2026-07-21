@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.1 — 2026-07-21
+
+### Fixed
+
+- **`upgrade` reported a malformed version.** The upgrade line read
+  `Upgraded: 0.0.5 -> version: 0.2.0` — the `version:` label leaking in — because
+  upgrade ran the new binary's `version` command and used its stdout verbatim,
+  and `docmd version` prints a labelled `version: X`. It now reports the release
+  tag version; the new binary is still run as a smoke-check, but its output is
+  discarded.
+
+### Changed
+
+- **`upgrade`'s OS shell operations now sit behind a `PlatformOps` seam** (modelled
+  on the sibling `inquiry` CLI). Archive extraction, the execute bit, and asset
+  naming are polymorphic per platform instead of scattered `if windows` checks,
+  and — because each implementation takes the shared process runner — the real
+  commands (`tar xzf`, PowerShell `Expand-Archive`, `chmod 755`) are now covered
+  by tests. No behaviour change; internal structure and test coverage only.
+
 ## 0.2.0 — 2026-07-20
 
 Repositions DocMD as an ultralight LLM-ingestion tool: import needs no Python and

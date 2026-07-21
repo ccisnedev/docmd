@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.2 — 2026-07-21
+
+### Changed
+
+- **All of `upgrade`'s platform-specific install steps now live in `PlatformOps`**,
+  finishing the seam started in 0.2.1. Backing up a running binary (Windows),
+  extraction, the execute bit, and linking into the user's PATH (Linux) are each a
+  method that is a no-op on the platform it does not apply to — so the command has
+  no `if (platform == 'windows')` branching in its install flow at all. Aligns with
+  the sibling `inquiry` CLI. The Windows backup/cleanup logic is unit-tested against
+  a temp directory; the Linux symlink is covered on Linux (CI). No behaviour change.
+
 ## 0.2.1 — 2026-07-21
 
 ### Fixed

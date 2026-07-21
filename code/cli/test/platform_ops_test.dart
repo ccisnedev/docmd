@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'package:docmd_cli/src/platform/platform_ops.dart';
@@ -97,6 +98,98 @@ void main() {
       await ops.makeExecutable(r'C:\Users\u\AppData\Local\docmd\bin\docmd.exe');
 
       expect(ran, isFalse);
+    });
+  });
+
+  group('WindowsPlatformOps install steps', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync('docmd_winops_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    // Windows locks a running .exe, so upgrade must move it aside before writing
+    // the new one over the same path.
+    test('backs up the running binary before it is replaced', () async {
+      final binary = File(p.join(dir.path, 'docmd.exe'))..writeAsStringSync('old');
+
+      await WindowsPlatformOps()
+          .backupRunningBinary(binary.path, runningExecutable: binary.path);
+
+      expect(binary.existsSync(), isFalse);
+      expect(File('${binary.path}.bak').readAsStringSync(), equals('old'));
+    });
+
+    test('does not back up a binary that is not the running one', () async {
+      final binary = File(p.join(dir.path, 'docmd.exe'))..writeAsStringSync('old');
+
+      await WindowsPlatformOps().backupRunningBinary(
+        binary.path,
+        runningExecutable: p.join(dir.path, 'something-else.exe'),
+      );
+
+      expect(binary.existsSync(), isTrue);
+      expect(File('${binary.path}.bak').existsSync(), isFalse);
+    });
+
+    test('overwrites a stale backup from a prior upgrade', () async {
+      final binary = File(p.join(dir.path, 'docmd.exe'))..writeAsStringSync('new');
+      File('${binary.path}.bak').writeAsStringSync('stale');
+
+      await WindowsPlatformOps()
+          .backupRunningBinary(binary.path, runningExecutable: binary.path);
+
+      expect(File('${binary.path}.bak').readAsStringSync(), equals('new'));
+    });
+
+    test('removeBackup deletes the .bak file', () async {
+      final binary = p.join(dir.path, 'docmd.exe');
+      File('$binary.bak').writeAsStringSync('bak');
+
+      await WindowsPlatformOps().removeBackup(binary);
+
+      expect(File('$binary.bak').existsSync(), isFalse);
+    });
+
+    test('linkIntoUserPath is a no-op — the install dir is on PATH', () async {
+      // Should not throw even with a null home, and creates nothing.
+      await WindowsPlatformOps()
+          .linkIntoUserPath(p.join(dir.path, 'docmd.exe'), userHome: null);
+      expect(dir.listSync(), isEmpty);
+    });
+  });
+
+  group('LinuxPlatformOps install steps', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync('docmd_linuxops_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    // Linux can overwrite a running binary in place (the inode survives).
+    test('does not back up the running binary', () async {
+      final binary = File(p.join(dir.path, 'docmd'))..writeAsStringSync('old');
+
+      await LinuxPlatformOps()
+          .backupRunningBinary(binary.path, runningExecutable: binary.path);
+
+      expect(binary.existsSync(), isTrue);
+      expect(File('${binary.path}.bak').existsSync(), isFalse);
+    });
+
+    test('links the binary into ~/.local/bin', () async {
+      final binary = File(p.join(dir.path, 'docmd'))..writeAsStringSync('bin');
+      final home = Directory(p.join(dir.path, 'home'))..createSync();
+
+      await LinuxPlatformOps()
+          .linkIntoUserPath(binary.path, userHome: home.path);
+
+      final link = Link(p.join(home.path, '.local', 'bin', 'docmd'));
+      expect(link.existsSync(), isTrue);
+      expect(link.targetSync(), equals(binary.path));
+    }, skip: Platform.isWindows ? 'symlink creation requires Linux' : null);
+
+    test('throws when there is no home directory to link into', () {
+      expect(
+        () => LinuxPlatformOps().linkIntoUserPath('/opt/docmd/bin/docmd', userHome: null),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 

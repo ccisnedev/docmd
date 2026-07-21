@@ -2,6 +2,8 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../process_runner.dart';
 
 /// Cross-platform abstraction for the OS-specific shell operations `upgrade`
@@ -26,6 +28,23 @@ abstract class PlatformOps {
 
   /// Marks [path] executable. A no-op on Windows, which has no execute bit.
   Future<void> makeExecutable(String path);
+
+  /// Moves the binary at [binaryPath] aside before it is overwritten, when the
+  /// OS would otherwise lock it (Windows, and only when [runningExecutable] is
+  /// that same binary). A no-op where a running binary can be overwritten in
+  /// place (Linux).
+  Future<void> backupRunningBinary(
+    String binaryPath, {
+    required String runningExecutable,
+  });
+
+  /// Removes any backup left by [backupRunningBinary]. A no-op where none is made.
+  Future<void> removeBackup(String binaryPath);
+
+  /// Links [binaryPath] into the user's PATH (Linux: `~/.local/bin/docmd`). A
+  /// no-op where the managed install directory is already the invocation point
+  /// (Windows). Throws if it needs [userHome] and it is unresolved.
+  Future<void> linkIntoUserPath(String binaryPath, {required String? userHome});
 
   /// The implementation for [platform] (`windows`/`win32`/`linux`), or null when
   /// the platform is unsupported so the caller can report it gracefully.
@@ -62,6 +81,37 @@ class LinuxPlatformOps implements PlatformOps {
   @override
   Future<void> makeExecutable(String path) async {
     await _run('chmod', ['755', path]);
+  }
+
+  @override
+  Future<void> backupRunningBinary(
+    String binaryPath, {
+    required String runningExecutable,
+  }) async {
+    // Linux keeps the running process's inode when the file is replaced, so the
+    // binary can be overwritten in place — no backup needed.
+  }
+
+  @override
+  Future<void> removeBackup(String binaryPath) async {}
+
+  @override
+  Future<void> linkIntoUserPath(String binaryPath, {required String? userHome}) async {
+    if (userHome == null || userHome.isEmpty) {
+      throw StateError(
+        'Unable to resolve the home directory to link docmd into PATH.',
+      );
+    }
+    final linkPath = p.posix.join(userHome, '.local', 'bin', 'docmd');
+    Directory(p.posix.dirname(linkPath)).createSync(recursive: true);
+
+    final link = Link(linkPath);
+    if (link.existsSync()) {
+      link.deleteSync();
+    } else if (File(linkPath).existsSync()) {
+      File(linkPath).deleteSync();
+    }
+    link.createSync(binaryPath);
   }
 
   Future<void> _run(String executable, List<String> arguments) async {
@@ -109,5 +159,41 @@ class WindowsPlatformOps implements PlatformOps {
   @override
   Future<void> makeExecutable(String path) async {
     // No execute bit on Windows.
+  }
+
+  @override
+  Future<void> backupRunningBinary(
+    String binaryPath, {
+    required String runningExecutable,
+  }) async {
+    final replacingSelf =
+        p.windows.normalize(runningExecutable).toLowerCase() ==
+        p.windows.normalize(binaryPath).toLowerCase();
+    if (!replacingSelf || !File(binaryPath).existsSync()) {
+      return;
+    }
+    final backup = File('$binaryPath.bak');
+    if (backup.existsSync()) {
+      backup.deleteSync();
+    }
+    File(binaryPath).renameSync(backup.path);
+  }
+
+  @override
+  Future<void> removeBackup(String binaryPath) async {
+    final backup = File('$binaryPath.bak');
+    if (backup.existsSync()) {
+      try {
+        backup.deleteSync();
+      } on FileSystemException {
+        // The just-replaced binary may still be held open; leave it for the
+        // next upgrade to clean up.
+      }
+    }
+  }
+
+  @override
+  Future<void> linkIntoUserPath(String binaryPath, {required String? userHome}) async {
+    // The managed install directory is already the invocation point on Windows.
   }
 }

@@ -9,6 +9,9 @@ import 'package:docmd_cli/src/version.dart';
 class _FakePlatformOps implements PlatformOps {
   final List<List<String>> expanded = [];
   final List<String> executables = [];
+  final List<String> backedUp = [];
+  final List<String> removedBackups = [];
+  final List<List<String?>> linked = [];
 
   @override
   String get assetName => 'docmd-linux-x64.tar.gz';
@@ -24,6 +27,24 @@ class _FakePlatformOps implements PlatformOps {
   @override
   Future<void> makeExecutable(String path) async {
     executables.add(path);
+  }
+
+  @override
+  Future<void> backupRunningBinary(
+    String binaryPath, {
+    required String runningExecutable,
+  }) async {
+    backedUp.add(binaryPath);
+  }
+
+  @override
+  Future<void> removeBackup(String binaryPath) async {
+    removedBackups.add(binaryPath);
+  }
+
+  @override
+  Future<void> linkIntoUserPath(String binaryPath, {required String? userHome}) async {
+    linked.add([binaryPath, userHome]);
   }
 }
 
@@ -77,7 +98,6 @@ void main() {
 
     test('downloads and applies a newer Linux release', () async {
       final createdDirectories = <String>[];
-      final symlinks = <List<String>>[];
       final deleted = <String>[];
       final downloads = <List<String>>[];
       final platformOps = _FakePlatformOps();
@@ -112,9 +132,6 @@ void main() {
           ensureDirectory: (path) async {
             createdDirectories.add(path);
           },
-          ensureSymlink: (targetPath, linkPath) async {
-            symlinks.add([targetPath, linkPath]);
-          },
           deletePath: (path) async {
             deleted.add(path);
           },
@@ -128,18 +145,17 @@ void main() {
       // The upgrade line shows the clean tag version, not "version: 99.0.0".
       expect(output.toText(), equals('Upgraded: $docmdVersion -> $newer'));
       expect(downloads.single.first, contains('docmd-linux-x64.tar.gz'));
-      // Extraction and the execute bit go through the platform seam.
+      // Every platform-varying install step is delegated to the seam.
+      const binaryPath = '/home/test/.docmd/bin/docmd';
       expect(
         platformOps.expanded.single,
         equals(['/tmp/docmd-$newer-docmd-linux-x64.tar.gz', '/home/test/.docmd']),
       );
-      expect(platformOps.executables.single, equals('/home/test/.docmd/bin/docmd'));
-      expect(
-        symlinks.single,
-        equals(['/home/test/.docmd/bin/docmd', '/home/test/.local/bin/docmd']),
-      );
+      expect(platformOps.executables.single, equals(binaryPath));
+      expect(platformOps.backedUp.single, equals(binaryPath));
+      expect(platformOps.removedBackups.single, equals(binaryPath));
+      expect(platformOps.linked.single, equals([binaryPath, '/home/test']));
       expect(createdDirectories, contains('/home/test/.docmd'));
-      expect(createdDirectories, contains('/home/test/.local/bin'));
       expect(deleted, contains('/tmp/docmd-$newer-docmd-linux-x64.tar.gz'));
     });
   });

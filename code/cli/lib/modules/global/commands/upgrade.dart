@@ -78,10 +78,8 @@ typedef DownloadReleaseAsset = Future<void> Function(
   Map<String, String> headers,
 );
 typedef ExecFileText = Future<String> Function(String executable, List<String> arguments);
-typedef RenamePath = Future<void> Function(String fromPath, String toPath);
 typedef DeletePath = Future<void> Function(String path);
 typedef EnsureDirectory = Future<void> Function(String path);
-typedef EnsureSymlink = Future<void> Function(String targetPath, String linkPath);
 
 class UpgradeDeps {
   final String platform;
@@ -89,18 +87,16 @@ class UpgradeDeps {
   final String? homeDirectory;
   final String resolvedExecutable;
   final bool Function(String path) directoryExists;
-  final bool Function(String path) fileExists;
   final FetchReleaseJson fetchJson;
   final DownloadReleaseAsset downloadFile;
   final ExecFileText execFile;
-  final RenamePath renamePath;
   final DeletePath deletePath;
   final EnsureDirectory ensureDirectory;
-  final EnsureSymlink ensureSymlink;
   final String Function() tempDirectoryPath;
 
-  /// The platform-varying shell operations (extract, chmod, asset naming). Null
-  /// only when the platform is unsupported.
+  /// Every platform-varying operation — asset naming, extraction, the execute
+  /// bit, the running-binary backup, and PATH linking. Null only when the
+  /// platform is unsupported.
   final PlatformOps? platformOps;
 
   UpgradeDeps({
@@ -109,27 +105,21 @@ class UpgradeDeps {
     this.homeDirectory,
     String? resolvedExecutable,
     bool Function(String path)? directoryExists,
-    bool Function(String path)? fileExists,
     FetchReleaseJson? fetchJson,
     DownloadReleaseAsset? downloadFile,
     ExecFileText? execFile,
-    RenamePath? renamePath,
     DeletePath? deletePath,
     EnsureDirectory? ensureDirectory,
-    EnsureSymlink? ensureSymlink,
     String Function()? tempDirectoryPath,
     PlatformOps? platformOps,
   }) : platform = platform ?? Platform.operatingSystem,
        resolvedExecutable = resolvedExecutable ?? Platform.resolvedExecutable,
        directoryExists = directoryExists ?? ((path) => Directory(path).existsSync()),
-       fileExists = fileExists ?? ((path) => File(path).existsSync()),
        fetchJson = fetchJson ?? _fetchJson,
        downloadFile = downloadFile ?? _downloadFile,
        execFile = execFile ?? _execFile,
-       renamePath = renamePath ?? _renamePath,
        deletePath = deletePath ?? _deletePath,
        ensureDirectory = ensureDirectory ?? _ensureDirectory,
-       ensureSymlink = ensureSymlink ?? _ensureSymlink,
        tempDirectoryPath = tempDirectoryPath ?? (() => Directory.systemTemp.path),
        platformOps = platformOps ??
            PlatformOps.forPlatform(platform ?? Platform.operatingSystem);
@@ -216,35 +206,20 @@ class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
       {'User-Agent': 'docmd-cli/$docmdVersion'},
     );
 
-    final runningManagedBinary = _pathEquals(_deps.platform, _deps.resolvedExecutable, binaryPath);
-    final backupPath = '$binaryPath.bak';
-
-    if (_deps.platform == 'windows' && runningManagedBinary && _deps.fileExists(binaryPath)) {
-      if (_deps.fileExists(backupPath)) {
-        await _deps.deletePath(backupPath);
-      }
-      await _deps.renamePath(binaryPath, backupPath);
-    }
-
+    // The install is entirely platform-polymorphic — every step below is a
+    // no-op on the platform it does not apply to, so there is no OS branching
+    // here. See PlatformOps.
+    await platformOps.backupRunningBinary(
+      binaryPath,
+      runningExecutable: _deps.resolvedExecutable,
+    );
     await _deps.ensureDirectory(installPath);
     await platformOps.expandArchive(archivePath, installPath);
-    await platformOps.makeExecutable(binaryPath); // no-op on Windows
-
-    if (_deps.platform != 'windows' && _deps.platform != 'win32') {
-      final linkPath = paths.join(_requireHomeDirectory(_deps), '.local', 'bin', 'docmd');
-      await _deps.ensureDirectory(paths.dirname(linkPath));
-      await _deps.ensureSymlink(binaryPath, linkPath);
-    }
+    await platformOps.makeExecutable(binaryPath);
+    await platformOps.linkIntoUserPath(binaryPath, userHome: _resolveHomeDirectory(_deps));
 
     await _deps.deletePath(archivePath);
-
-    if (_deps.platform == 'windows' && _deps.fileExists(backupPath)) {
-      try {
-        await _deps.deletePath(backupPath);
-      } catch (_) {
-        // Best-effort cleanup for a previously running executable.
-      }
-    }
+    await platformOps.removeBackup(binaryPath);
 
     // Smoke-check that the freshly installed binary actually runs. Its output is
     // deliberately discarded: the version to report is the release tag, not this
@@ -276,7 +251,9 @@ String? _resolveManagedInstallPath(UpgradeDeps deps) {
   }
 
   if (deps.platform == 'linux') {
-    return paths.join(_requireHomeDirectory(deps), '.docmd');
+    final home = _resolveHomeDirectory(deps);
+    if (home == null) return null;
+    return paths.join(home, '.docmd');
   }
 
   return null;
@@ -296,21 +273,11 @@ String? _resolveManagedBinaryPath(UpgradeDeps deps) {
   );
 }
 
-String _requireHomeDirectory(UpgradeDeps deps) {
-  final homeDirectory = deps.homeDirectory ?? Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-  if (homeDirectory == null || homeDirectory.isEmpty) {
-    throw StateError('Unable to resolve the current user home directory.');
-  }
-
-  return homeDirectory;
-}
-
-bool _pathEquals(String platform, String a, String b) {
-  if (platform == 'windows' || platform == 'win32') {
-    return p.windows.normalize(a).toLowerCase() == p.windows.normalize(b).toLowerCase();
-  }
-
-  return p.posix.normalize(a) == p.posix.normalize(b);
+String? _resolveHomeDirectory(UpgradeDeps deps) {
+  final home = deps.homeDirectory ??
+      Platform.environment['HOME'] ??
+      Platform.environment['USERPROFILE'];
+  return (home == null || home.isEmpty) ? null : home;
 }
 
 p.Context _pathContext(String platform) {
@@ -388,10 +355,6 @@ Future<String> _execFile(String executable, List<String> arguments) async {
   return '${result.stdout}'.trim();
 }
 
-Future<void> _renamePath(String fromPath, String toPath) async {
-  await File(fromPath).rename(toPath);
-}
-
 Future<void> _deletePath(String path) async {
   final file = File(path);
   if (await file.exists()) {
@@ -407,18 +370,4 @@ Future<void> _deletePath(String path) async {
 
 Future<void> _ensureDirectory(String path) async {
   await Directory(path).create(recursive: true);
-}
-
-Future<void> _ensureSymlink(String targetPath, String linkPath) async {
-  final link = Link(linkPath);
-  if (await link.exists()) {
-    await link.delete();
-  } else {
-    final file = File(linkPath);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  }
-
-  await link.create(targetPath, recursive: true);
 }

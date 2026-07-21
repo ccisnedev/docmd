@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3 — 2026-07-21
+
+### Added
+
+- **The default `docmd` summary now tells you when a newer release is available**
+  (`Update available: v0.2.2 → v0.2.3 — run \`docmd upgrade\``). Previously a bare
+  `docmd` gave no hint an update existed — you had to run `upgrade` to find out.
+  The check is non-blocking and silent on network failure, so it never delays or
+  breaks the summary. Mirrors the sibling `inquiry` CLI. (`doctor` already
+  reported update availability; this brings the default view to parity.)
+
 ## 0.2.2 — 2026-07-21
 
 ### Changed

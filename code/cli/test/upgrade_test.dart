@@ -84,7 +84,10 @@ void main() {
           extractTarGz: (archivePath, destDir) async {
             extracted.add([archivePath, destDir]);
           },
-          execFile: (executable, arguments) async => newer,
+          // Production reality: `docmd version` has no toText(), so the binary
+          // prints the labelled JSON "version: 99.0.0". The reported version must
+          // NOT be scraped from this — it comes from the release tag.
+          execFile: (executable, arguments) async => 'version: $newer',
           ensureDirectory: (path) async {
             createdDirectories.add(path);
           },
@@ -104,6 +107,8 @@ void main() {
       expect(output.status, equals('upgraded'));
       expect(output.upgraded, isTrue);
       expect(output.newVersion, equals(newer));
+      // The upgrade line shows the clean tag version, not "version: 99.0.0".
+      expect(output.toText(), equals('Upgraded: $docmdVersion -> $newer'));
       expect(downloads.single.first, contains('docmd-linux-x64.tar.gz'));
       expect(extracted.single, equals(['/tmp/docmd-$newer-docmd-linux-x64.tar.gz', '/home/test/.docmd']));
       expect(chmodCalls.single, equals(['/home/test/.docmd/bin/docmd', '755']));

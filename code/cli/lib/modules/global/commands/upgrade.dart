@@ -250,13 +250,17 @@ class UpgradeCommand implements Command<UpgradeInput, UpgradeOutput> {
       }
     }
 
-    final installedVersion = (await _deps.execFile(binaryPath, ['version'])).trim();
+    // Smoke-check that the freshly installed binary actually runs. Its output is
+    // deliberately discarded: the version to report is the release tag, not this
+    // command's text (`docmd version` prints a labelled "version: X", which would
+    // otherwise leak into the upgrade message).
+    await _deps.execFile(binaryPath, ['version']);
 
     return UpgradeOutput(
       status: 'upgraded',
-      message: 'Upgraded from $docmdVersion to $installedVersion',
+      message: 'Upgraded from $docmdVersion to $latestVersion',
       previousVersion: docmdVersion,
-      newVersion: installedVersion,
+      newVersion: latestVersion,
       upgraded: true,
       installPath: installPath,
     );

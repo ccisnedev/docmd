@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.6 — 2026-10-14
+
+### Fixed
+
+- **Imported decks came out in the wrong order.** Slide shapes were read in
+  document order, which in OOXML is z-order — the order shapes were created, and
+  something PowerPoint never rewrites when a slide is edited. On a real 17-slide
+  deck this detached all four `01.`–`04.` numerals from the bullets they label
+  and left them clumped at the end of the slide, and it scrambled the labels of
+  every screen mockup. Shapes are now sorted by position: siblings at each level
+  are ordered by horizontal reading band (a twentieth of the slide height,
+  calibrated against a deck where a bullet and its numeral sit 140 746 EMU apart)
+  and then left to right, recursing into groups through their own child
+  coordinate space. Shapes with no `<a:off>` inherit the previous sibling's
+  position, so a slide carrying no geometry still comes out in document order
+  exactly as before.
+
+### Added
+
+- **Slide sections carry the slide's title** — `## Slide 2 · ¿DIAGNÓSTICO?`
+  instead of a bare `## Slide 2`. The layout placeholder is authoritative when
+  present; decks built from free-floating text boxes have none at all, so the
+  fallback is the first text in reading order, guarded by length so a paragraph
+  of body copy is never promoted. The title is not repeated in the body.
+- **`render` picks its default format from the package kind.** A `deck` package
+  renders back to `.pptx` instead of silently becoming a `.docx`. An explicit
+  `--pdf`/`--pptx`/`--docx` still wins, and `--docx` is now a real flag so the
+  old default stays reachable for a deck. Bare Markdown files are unaffected.
 ## 0.2.5 — 2026-09-29
 
 ### Fixed

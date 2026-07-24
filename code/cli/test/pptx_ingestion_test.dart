@@ -15,19 +15,49 @@ const _imageRelType =
     'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 
 /// One shape on a slide, in document order.
+///
+/// `x`/`y` are the shape's EMU offset. Leaving them null omits the `<a:xfrm>`
+/// entirely, which is how a shape with no geometry is expressed.
 sealed class Shape {
-  const Shape();
+  final int? x;
+  final int? y;
+  const Shape({this.x, this.y});
 }
 
 class TextShape extends Shape {
   final List<String> paragraphs;
-  const TextShape(this.paragraphs);
+
+  /// Emits the `<p:ph type="title"/>` that marks a layout title placeholder.
+  final bool isTitlePlaceholder;
+
+  const TextShape(
+    this.paragraphs, {
+    super.x,
+    super.y,
+    this.isTitlePlaceholder = false,
+  });
 }
 
 class PictureShape extends Shape {
   /// Media file name, e.g. `image1.png`.
   final String media;
-  const PictureShape(this.media);
+  const PictureShape(this.media, {super.x, super.y});
+}
+
+/// A group whose children live in their own coordinate space: `ext` is the size
+/// on the slide, `chExt` the size the children are drawn against.
+class GroupShape extends Shape {
+  final List<Shape> children;
+  final int extentHeight;
+  final int childExtentHeight;
+
+  const GroupShape(
+    this.children, {
+    super.x,
+    super.y,
+    this.extentHeight = 1000,
+    this.childExtentHeight = 1000,
+  });
 }
 
 class SlideSpec {
@@ -35,6 +65,31 @@ class SlideSpec {
   final String fileName;
   final List<Shape> shapes;
   const SlideSpec(this.fileName, this.shapes);
+}
+
+/// 16:9 at 96 dpi — the PowerPoint default, and what the backend assumes when a
+/// deck declares no size.
+const int slideHeight = 6858000;
+
+/// The backend reads a twentieth of the slide height as one row.
+const int bandHeight = slideHeight ~/ 20;
+
+String _shapeProperties(Shape shape) {
+  if (shape.x == null || shape.y == null) {
+    return '';
+  }
+  return '<p:spPr><a:xfrm><a:off x="${shape.x}" y="${shape.y}"/></a:xfrm></p:spPr>';
+}
+
+String _groupProperties(GroupShape group) {
+  final offset = (group.x == null || group.y == null)
+      ? ''
+      : '<a:off x="${group.x}" y="${group.y}"/>';
+  return '<p:grpSpPr><a:xfrm>$offset'
+      '<a:ext cx="1000" cy="${group.extentHeight}"/>'
+      '<a:chOff x="0" y="0"/>'
+      '<a:chExt cx="1000" cy="${group.childExtentHeight}"/>'
+      '</a:xfrm></p:grpSpPr>';
 }
 
 /// Builds a minimal but structurally real .pptx.
@@ -66,7 +121,10 @@ File buildPptx(String path, List<SlideSpec> slidesInPresentationOrder) {
     '<p:presentation '
     'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    '<p:sldIdLst>$sldIds</p:sldIdLst></p:presentation>',
+    '<p:sldIdLst>$sldIds</p:sldIdLst>'
+    // 16:9 default. Reading bands are a twentieth of this, so 342 900 EMU.
+    '<p:sldSz cx="12192000" cy="$slideHeight"/>'
+    '</p:presentation>',
   );
   addFile(
     'ppt/_rels/presentation.xml.rels',
@@ -75,32 +133,48 @@ File buildPptx(String path, List<SlideSpec> slidesInPresentationOrder) {
   );
 
   for (final slide in slidesInPresentationOrder) {
-    final shapes = StringBuffer();
     final slideRels = StringBuffer();
     var imageCount = 0;
 
-    for (final shape in slide.shapes) {
-      switch (shape) {
-        case TextShape(:final paragraphs):
-          final body = paragraphs
-              .map((text) => '<a:p><a:r><a:t>$text</a:t></a:r></a:p>')
-              .join();
-          shapes.write('<p:sp><p:txBody>$body</p:txBody></p:sp>');
-        case PictureShape(:final media):
-          imageCount += 1;
-          final relId = 'rId$imageCount';
-          slideRels.write(
-            '<Relationship Id="$relId" Type="$_imageRelType" '
-            'Target="../media/$media"/>',
-          );
-          shapes.write(
-            '<p:pic><p:blipFill><a:blip r:embed="$relId"/></p:blipFill></p:pic>',
-          );
-          archive.addFile(
-            ArchiveFile.bytes('ppt/media/$media', utf8.encode('BINARY:$media')),
-          );
+    String emit(List<Shape> shapeList) {
+      final out = StringBuffer();
+      for (final shape in shapeList) {
+        switch (shape) {
+          case TextShape(:final paragraphs, :final isTitlePlaceholder):
+            final body = paragraphs
+                .map((text) => '<a:p><a:r><a:t>$text</a:t></a:r></a:p>')
+                .join();
+            final placeholder = isTitlePlaceholder
+                ? '<p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>'
+                : '';
+            out.write(
+              '<p:sp>$placeholder${_shapeProperties(shape)}'
+              '<p:txBody>$body</p:txBody></p:sp>',
+            );
+          case PictureShape(:final media):
+            imageCount += 1;
+            final relId = 'rId$imageCount';
+            slideRels.write(
+              '<Relationship Id="$relId" Type="$_imageRelType" '
+              'Target="../media/$media"/>',
+            );
+            out.write(
+              '<p:pic>${_shapeProperties(shape)}'
+              '<p:blipFill><a:blip r:embed="$relId"/></p:blipFill></p:pic>',
+            );
+            archive.addFile(
+              ArchiveFile.bytes('ppt/media/$media', utf8.encode('BINARY:$media')),
+            );
+          case GroupShape(:final children):
+            out.write(
+              '<p:grpSp>${_groupProperties(shape)}${emit(children)}</p:grpSp>',
+            );
+        }
       }
+      return out.toString();
     }
+
+    final shapes = StringBuffer(emit(slide.shapes));
 
     addFile(
       'ppt/slides/${slide.fileName}',
@@ -272,6 +346,153 @@ void main() {
       expect(markdown, contains('Información General'));
       expect(markdown, contains('Día de pago — ¿café?'));
       expect(markdown, isNot(contains('Ã')));
+    });
+
+    // Document order in a slide is z-order — the order shapes were created, which
+    // PowerPoint never rewrites. On the deck that motivated this, the numerals had
+    // been added after the bullets, so reading the tree in order detached all four
+    // from the text they label and left them clumped at the end of the slide.
+    test('reads shapes in layout order, not the order they were created', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const TextShape(['Diagnosis'], x: 0, y: 0),
+          const TextShape(['Second finding'], x: 2000000, y: bandHeight * 6),
+          const TextShape(['First finding'], x: 2000000, y: bandHeight * 4),
+          const TextShape(['02.'], x: 1000000, y: bandHeight * 6),
+          const TextShape(['01.'], x: 1000000, y: bandHeight * 4),
+        ]),
+      ]);
+
+      expect(markdown.indexOf('01.'), lessThan(markdown.indexOf('First finding')));
+      expect(
+        markdown.indexOf('First finding'),
+        lessThan(markdown.indexOf('02.')),
+      );
+      expect(markdown.indexOf('02.'), lessThan(markdown.indexOf('Second finding')));
+    });
+
+    // Shapes never line up to the pixel, so rows are bands rather than exact
+    // matches on y. Without the band, a row of side-by-side boxes interleaves
+    // with the rows above and below it.
+    test('reads a row of near-aligned shapes left to right', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const TextShape(['Processes'], x: 0, y: 0),
+          const TextShape(['Right'], x: 9000000, y: bandHeight * 8 + 1000),
+          const TextShape(['Left'], x: 200000, y: bandHeight * 8),
+          const TextShape(['Middle'], x: 4000000, y: bandHeight * 8 + 500),
+        ]),
+      ]);
+
+      expect(markdown.indexOf('Left'), lessThan(markdown.indexOf('Middle')));
+      expect(markdown.indexOf('Middle'), lessThan(markdown.indexOf('Right')));
+    });
+
+    // A group's children are drawn against `chExt`, not the slide, so the band has
+    // to be rescaled on the way in or a tall group collapses its rows into one.
+    test('orders group children among themselves and the group among siblings', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const TextShape(['Heading'], x: 0, y: 0),
+          const TextShape(['After the group'], x: 0, y: bandHeight * 12),
+          const GroupShape(
+            [
+              TextShape(['Group second'], x: 0, y: 800),
+              TextShape(['Group first'], x: 0, y: 100),
+            ],
+            x: 0,
+            y: bandHeight * 6,
+            extentHeight: bandHeight * 2,
+            childExtentHeight: 1000,
+          ),
+        ]),
+      ]);
+
+      expect(
+        markdown.indexOf('Group first'),
+        lessThan(markdown.indexOf('Group second')),
+      );
+      expect(
+        markdown.indexOf('Group second'),
+        lessThan(markdown.indexOf('After the group')),
+      );
+    });
+
+    test('keeps document order when the slide carries no geometry', () async {
+      final (markdown, _) = await ingest([
+        const SlideSpec('slide1.xml', [
+          TextShape(['Heading']),
+          TextShape(['One']),
+          TextShape(['Two']),
+          TextShape(['Three']),
+        ]),
+      ]);
+
+      expect(markdown.indexOf('One'), lessThan(markdown.indexOf('Two')));
+      expect(markdown.indexOf('Two'), lessThan(markdown.indexOf('Three')));
+    });
+
+    test('titles the section from the layout placeholder, wherever it sits', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const TextShape(['Body copy, first in reading order'], x: 0, y: 0),
+          const TextShape(
+            ['The Real Title'],
+            x: 0,
+            y: bandHeight * 10,
+            isTitlePlaceholder: true,
+          ),
+        ]),
+      ]);
+
+      expect(markdown, contains('## Slide 1 · The Real Title'));
+      expect(markdown, contains('Body copy, first in reading order'));
+      // Promoted into the heading, not repeated in the body.
+      expect(RegExp('The Real Title').allMatches(markdown).length, equals(1));
+    });
+
+    // Every slide of the deck this was built against is free-floating text boxes
+    // with no placeholder at all, so the fallback carries the real decks.
+    test('falls back to the first text in reading order as the title', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const TextShape(['Body copy'], x: 0, y: bandHeight * 8),
+          const TextShape(['¿DIAGNÓSTICO?'], x: 0, y: bandHeight),
+        ]),
+      ]);
+
+      expect(markdown, contains('## Slide 1 · ¿DIAGNÓSTICO?'));
+      expect(markdown, contains('Body copy'));
+      expect(RegExp(r'¿DIAGNÓSTICO\?').allMatches(markdown).length, equals(1));
+    });
+
+    // Two slides of the motivating deck open with a decorative image that sorts
+    // above the heading. A picture is never a title, so it must not cost the
+    // slide its own.
+    test('looks past a leading image for the title', () async {
+      final (markdown, _) = await ingest([
+        SlideSpec('slide1.xml', [
+          const PictureShape('banner.png', x: 0, y: 0),
+          const TextShape(['APP Santa Isabel'], x: 0, y: bandHeight * 4),
+          const TextShape(['Body copy'], x: 0, y: bandHeight * 8),
+        ]),
+      ]);
+
+      expect(markdown, contains('## Slide 1 · APP Santa Isabel'));
+      expect(markdown, contains('![](../assets/media/banner.png)'));
+      expect(RegExp('APP Santa Isabel').allMatches(markdown).length, equals(1));
+    });
+
+    test('leaves a long opening paragraph in the body rather than titling with it', () async {
+      const paragraph =
+          'Actualmente en el proceso de desembolso del producto se recaba la firma '
+          'manuscrita digital de las socias, en donde se ha identificado lo siguiente.';
+      final (markdown, _) = await ingest([
+        const SlideSpec('slide1.xml', [TextShape([paragraph], x: 0, y: 0)]),
+      ]);
+
+      expect(markdown, contains('## Slide 1\n'));
+      expect(markdown, contains(paragraph));
     });
 
     test('rejects a file that is not a readable pptx', () async {

@@ -83,6 +83,41 @@ Follow-ups deferred from this cut: engine + version recorded in the manifest
 of docling's referenced-image output on a machine with docling installed (the
 artifact-folder name is currently handled generically and marked in code).
 
+Note: the engine matrix above lists `pptx` as "LibreOffice `--convert-to html` →
+pandoc". That is stale — pptx ingestion is a native Dart OOXML reader
+(`pptx_backend.dart`), which is strictly better: pandoc has no pptx *reader* at
+all, and it resolves images to real media parts. The row is left as written until
+the matrix is revised as a whole.
+
+### Dogfood findings — 17-slide deck, 2026-07-24
+
+Surfaced by running a real requirements deck through import → edit → render.
+Fixed in 0.2.6: reading order, slide titles, kind-driven render default, and the
+VS Code editor's blocked images and missing PPTX export. Still open:
+
+- **Tables are dropped.** `<a:tbl>` inside `<p:graphicFrame>` is not handled in
+  `_blocksIn`, which walks only `sp`, `pic` and `grpSp`. A deck with tables loses
+  them silently — no warning, no placeholder. Not hit by the corpus deck (0
+  tables across its 17 slides), which is the only reason it is not urgent.
+- **Speaker notes are dropped.** `ppt/notesSlides/` is never read. Often carries
+  the argument behind a slide. The corpus deck's two notes held only "8" and "9",
+  so it bought nothing there.
+- **Connectors are dropped.** `p:cxnSp` (4 in the corpus deck) — arrows and
+  flow lines. Losing the shape is fine; losing a label on it would not be.
+- **pandoc's pptx writer silently drops inline images.** Measured, not assumed: an
+  image inside a text paragraph or a list item renders as *no image at all*, while
+  an image alone in its paragraph survives but forces a slide break. So a deck
+  round-trips at roughly one slide per image and there is no arrangement that
+  keeps both the images and a 1:1 slide mapping. A native pptx writer is the only
+  real fix; until then this is the ceiling on render fidelity for decks.
+- **`--reference-doc` passthrough.** pandoc can take a template deck to preserve
+  branding, and the imported package already keeps the original in
+  `assets/original/`. Deliberately skipped this cut (the driving task did not want
+  the institutional design carried over) but it is the only route to an export
+  that looks like the source.
+- **Import reports no per-slide fidelity.** The summary counts media but says
+  nothing about shapes it could not represent, so silent loss stays silent.
+
 The version milestones below remain the feature-level plan, reframed by the
 direction above.
 

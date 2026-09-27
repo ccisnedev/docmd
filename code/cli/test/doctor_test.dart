@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cli_router/cli_router.dart';
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'package:test/test.dart';
@@ -45,23 +49,108 @@ void main() {
       },
     );
 
-    test('wires into a real ModularCli doctor run end-to-end', () async {
-      final cli =
-          ModularCli(suggestionDistance: 2, name: 'docmd', version: '0.0.0')
-            ..plugin(const DoctorPlugin())
-            ..plugin(
-              DocmdDoctorChecksPlugin(
-                resolvePandocExecutable: () => '/usr/bin/pandoc',
-                resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-              ),
-            );
+    test(
+      'runs a real ModularCli doctor invocation end-to-end and reports success',
+      () async {
+        final cli =
+            ModularCli(suggestionDistance: 2, name: 'docmd', version: '0.0.0')
+              ..plugin(const DoctorPlugin())
+              ..plugin(
+                DocmdDoctorChecksPlugin(
+                  resolvePandocExecutable: () => '/usr/bin/pandoc',
+                  resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+                ),
+              );
 
-      cli.buildPlugins();
+        cli.buildPlugins();
 
-      final entry = cli.catalog.forName('doctor');
-      expect(entry, isNotNull);
-    });
+        final result = await _run(cli, ['doctor', '--json']);
+
+        expect(result.exitCode, equals(0));
+        final json = jsonDecode(result.stdout) as Map<String, dynamic>;
+        final checks = (json['checks'] as List).cast<Map<String, dynamic>>();
+        expect(
+          checks,
+          containsAll([
+            containsPair('name', 'pandoc'),
+            containsPair('name', 'libreoffice'),
+          ]),
+        );
+        expect(checks.every((c) => c['status'] == 'ok'), isTrue);
+      },
+    );
+
+    test(
+      'runs a real ModularCli doctor invocation end-to-end and reports a failing check',
+      () async {
+        final cli =
+            ModularCli(suggestionDistance: 2, name: 'docmd', version: '0.0.0')
+              ..plugin(const DoctorPlugin())
+              ..plugin(
+                DocmdDoctorChecksPlugin(
+                  resolvePandocExecutable: () => null,
+                  resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+                ),
+              );
+
+        cli.buildPlugins();
+
+        final result = await _run(cli, ['doctor', '--json']);
+
+        expect(result.exitCode, isNot(equals(0)));
+        final json = jsonDecode(result.stderr) as Map<String, dynamic>;
+        final error = json['error'] as Map<String, dynamic>;
+        expect(error['id'], equals('doctor-check-failed'));
+        final checks = (error['checks'] as List).cast<Map<String, dynamic>>();
+        final pandoc = checks.singleWhere((c) => c['name'] == 'pandoc');
+        expect(pandoc['status'], equals('error'));
+        final libreoffice = checks.singleWhere(
+          (c) => c['name'] == 'libreoffice',
+        );
+        expect(libreoffice['status'], equals('ok'));
+      },
+    );
   });
+}
+
+/// Runs [args] on [cli] and captures both streams, the same way
+/// `runDocmd`/the extension's `DocmdCli.run` drive a `ModularCli`.
+Future<({int exitCode, String stdout, String stderr})> _run(
+  ModularCli cli,
+  List<String> args,
+) async {
+  final stdoutController = StreamController<List<int>>();
+  final stderrController = StreamController<List<int>>();
+  final stdoutBytes = <int>[];
+  final stderrBytes = <int>[];
+
+  stdoutController.stream.listen(stdoutBytes.addAll);
+  stderrController.stream.listen(stderrBytes.addAll);
+
+  final stdoutSink = IOSink(stdoutController.sink);
+  final stderrSink = IOSink(stderrController.sink);
+
+  try {
+    final exitCode = await cli.run(
+      args,
+      stdout: stdoutSink,
+      stderr: stderrSink,
+    );
+
+    await stdoutSink.flush();
+    await stderrSink.flush();
+    await stdoutSink.close();
+    await stderrSink.close();
+
+    return (
+      exitCode: exitCode,
+      stdout: utf8.decode(stdoutBytes).trim(),
+      stderr: utf8.decode(stderrBytes).trim(),
+    );
+  } finally {
+    await stdoutController.close();
+    await stderrController.close();
+  }
 }
 
 Future<List<CliDoctorCheck>> _contributedChecks(

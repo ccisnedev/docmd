@@ -17,7 +17,7 @@ class SetupInput extends Input {
   SetupInput({this.capability = 'all', this.apply = false, this.force = false});
 
   factory SetupInput.fromCliRequest(CliRequest req) {
-    final capability = (req.params['capability'] ?? 'all').trim();
+    final capability = (req.param('capability') ?? 'all').trim();
     return SetupInput(
       capability: capability.isEmpty ? 'all' : capability,
       apply: req.flagBool('apply'),
@@ -27,29 +27,38 @@ class SetupInput extends Input {
 
   // Terraform-style, matching `iq issue publish`: `--plan` is the safe default
   // and carries no value the command reads; `--apply` executes.
-  static final List<CliParam> params = [
-    CliParam.positional(
-      'capability',
-      description:
-          'What to provision: a capability (all, pdf, docx) or a single tool '
-          '(pandoc, libreoffice). Default: all',
-    ),
-    CliParam.boolean(
-      'plan',
-      description: 'Preview the install plan without changing anything (default)',
-    ),
-    CliParam.boolean(
-      'apply',
-      description: 'Execute the install plan',
-    ),
-    CliParam.boolean(
-      'force',
-      description: 'Reinstall tools even if they are already present',
-    ),
-  ];
-
-  @override
-  List<CliParam> get schemaFields => params;
+  static final CliContract contract = CliContract(
+    positionals: [
+      CliPositional.string(
+        'capability',
+        required: true,
+        description:
+            'What to provision: a capability (all, pdf, docx) or a single tool '
+            '(pandoc, libreoffice). Default: all',
+      ),
+    ],
+    options: [
+      CliParam.flag(
+        'plan',
+        abbr: null,
+        repeatable: false,
+        description:
+            'Preview the install plan without changing anything (default)',
+      ),
+      CliParam.flag(
+        'apply',
+        abbr: null,
+        repeatable: false,
+        description: 'Execute the install plan',
+      ),
+      CliParam.flag(
+        'force',
+        abbr: null,
+        repeatable: false,
+        description: 'Reinstall tools even if they are already present',
+      ),
+    ],
+  );
 
   @override
   Map<String, dynamic> toJson() => {
@@ -131,13 +140,15 @@ class SetupOutput extends Output {
     }
     if (!allOk) {
       lines.add('');
-      lines.add('Some steps failed. Run the commands above manually to finish.');
+      lines.add(
+        'Some steps failed. Run the commands above manually to finish.',
+      );
     }
     return lines.join('\n');
   }
 }
 
-class SetupCommand implements Command<SetupInput, SetupOutput> {
+class SetupCommand implements Query<SetupInput, SetupOutput> {
   @override
   final SetupInput input;
 
@@ -181,11 +192,13 @@ class SetupCommand implements Command<SetupInput, SetupOutput> {
     if (input.apply) {
       for (final step in plan) {
         final result = await _runProcess(step.executable, step.args);
-        results.add(StepResult(
-          tool: step.tool,
-          command: step.display,
-          exitCode: result.exitCode,
-        ));
+        results.add(
+          StepResult(
+            tool: step.tool,
+            command: step.display,
+            exitCode: result.exitCode,
+          ),
+        );
       }
     }
 

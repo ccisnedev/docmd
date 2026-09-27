@@ -18,35 +18,44 @@ class RenderInput extends Input {
 
   factory RenderInput.fromCliRequest(CliRequest req) {
     return RenderInput(
-      inputPath: req.params['input'] ?? '',
+      inputPath: req.param('input') ?? '',
       format: req.flagBool('pdf')
           ? 'pdf'
           : req.flagBool('pptx')
-              ? 'pptx'
-              : 'docx',
+          ? 'pptx'
+          : 'docx',
     );
   }
 
   // docx and pptx are native pandoc writers; pdf is pandoc→LibreOffice. No
   // --xlsx: pandoc has no xlsx writer, so declaring it would only reject its
   // own use. It returns with a real renderer, not before.
-  static final List<CliParam> params = [
-    CliParam.positional(
-      'input',
-      description: 'Markdown file or DocMD package to render',
-    ),
-    CliParam.boolean('pdf', description: 'Render to PDF'),
-    CliParam.boolean('pptx', description: 'Render to PPTX'),
-  ];
+  static final CliContract contract = CliContract(
+    positionals: [
+      CliPositional.string(
+        'input',
+        required: true,
+        description: 'Markdown file or DocMD package to render',
+      ),
+    ],
+    options: [
+      CliParam.flag(
+        'pdf',
+        abbr: null,
+        repeatable: false,
+        description: 'Render to PDF',
+      ),
+      CliParam.flag(
+        'pptx',
+        abbr: null,
+        repeatable: false,
+        description: 'Render to PPTX',
+      ),
+    ],
+  );
 
   @override
-  List<CliParam> get schemaFields => params;
-
-  @override
-  Map<String, dynamic> toJson() => {
-    'inputPath': inputPath,
-    'format': format,
-  };
+  Map<String, dynamic> toJson() => {'inputPath': inputPath, 'format': format};
 }
 
 class RenderOutput extends Output {
@@ -89,7 +98,7 @@ class RenderOutput extends Output {
   }
 }
 
-class RenderCommand implements Command<RenderInput, RenderOutput> {
+class RenderCommand implements Query<RenderInput, RenderOutput> {
   @override
   final RenderInput input;
   final ProcessRunner _runProcess;
@@ -219,7 +228,8 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
       final outputDir = p.dirname(outputPath);
       Directory(outputDir).createSync(recursive: true);
 
-      final sofficeExecutable = resolveLibreOfficeExecutable() ??
+      final sofficeExecutable =
+          resolveLibreOfficeExecutable() ??
           (Platform.isWindows ? 'soffice.exe' : 'soffice');
       final result = await _runProcess(sofficeExecutable, [
         '--headless',
@@ -245,7 +255,9 @@ class RenderCommand implements Command<RenderInput, RenderOutput> {
       );
 
       if (!File(generatedPdf).existsSync()) {
-        throw StateError('Expected rendered PDF was not created: $generatedPdf');
+        throw StateError(
+          'Expected rendered PDF was not created: $generatedPdf',
+        );
       }
     } finally {
       if (tempDir.existsSync()) {

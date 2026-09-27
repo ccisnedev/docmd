@@ -6,10 +6,9 @@ import '../../../src/tool_locator.dart';
 
 /// Contributes docmd's own doctor checks (Pandoc and LibreOffice
 /// availability) to the `doctor.checks` extension point [DoctorPlugin]
-/// declares. `doctor` itself, and the binary/alias/release checks, are owned
-/// entirely by `modular_cli_sdk`'s own [DoctorPlugin]/[InstallationPlugin];
-/// this plugin only adds the two checks that are specific to docmd's own
-/// import/render tooling.
+/// declares. `doctor` itself is owned entirely by `modular_cli_sdk`'s own
+/// [DoctorPlugin]; this plugin only adds the two checks that are specific to
+/// docmd's own import/render tooling.
 class DocmdDoctorChecksPlugin implements CliPlugin {
   DocmdDoctorChecksPlugin({
     String? Function()? resolvePandocExecutable,

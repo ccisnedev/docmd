@@ -13,67 +13,81 @@ void main() {
       expect(cmd.validate(), contains('Input file required'));
     });
 
-    test('execute() creates a package and copies markdown into content/document.md', () async {
-      final dir = Directory.systemTemp.createTempSync('docmd_import_test_');
-      final file = File('${dir.path}/requirement.md')
-        ..writeAsStringSync('# Requirement');
+    test(
+      'execute() creates a package and copies markdown into content/document.md',
+      () async {
+        final dir = Directory.systemTemp.createTempSync('docmd_import_test_');
+        final file = File('${dir.path}/requirement.md')
+          ..writeAsStringSync('# Requirement');
 
-      try {
-        final cmd = ImportCommand(ImportInput(inputPath: file.path));
-        final output = await cmd.execute();
+        try {
+          final cmd = ImportCommand(ImportInput(inputPath: file.path));
+          final output = await cmd.execute();
 
-        expect(output.packagePath, endsWith('requirement.docmd'));
-        expect(output.status, equals('copied'));
-        expect(
-          output.canonicalDocumentPath,
-          endsWith(p.join('content', 'document.md')),
-        );
-        expect(
-          output.originalSourcePath,
-          endsWith(p.join('assets', 'original', 'requirement.md')),
-        );
-        expect(
-          File('${output.packagePath}/content/document.md').readAsStringSync(),
-          equals('# Requirement'),
-        );
-        expect(
-          File('${output.packagePath}/manifest.yaml').readAsStringSync(),
-          contains('kind: document'),
-        );
-      } finally {
-        dir.deleteSync(recursive: true);
-      }
-    });
+          expect(output.packagePath, endsWith('requirement.docmd'));
+          expect(output.status, equals('copied'));
+          expect(
+            output.canonicalDocumentPath,
+            endsWith(p.join('content', 'document.md')),
+          );
+          expect(
+            output.originalSourcePath,
+            endsWith(p.join('assets', 'original', 'requirement.md')),
+          );
+          expect(
+            File(
+              '${output.packagePath}/content/document.md',
+            ).readAsStringSync(),
+            equals('# Requirement'),
+          );
+          expect(
+            File('${output.packagePath}/manifest.yaml').readAsStringSync(),
+            contains('kind: document'),
+          );
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      },
+    );
 
-    test('execute() creates the package under the requested output directory', () async {
-      final dir = Directory.systemTemp.createTempSync('docmd_import_output_test_');
-      final outputDir = Directory(p.join(dir.path, 'imports'));
-      final file = File('${dir.path}/requirement.md')
-        ..writeAsStringSync('# Requirement');
+    test(
+      'execute() creates the package under the requested output directory',
+      () async {
+        final dir = Directory.systemTemp.createTempSync(
+          'docmd_import_output_test_',
+        );
+        final outputDir = Directory(p.join(dir.path, 'imports'));
+        final file = File('${dir.path}/requirement.md')
+          ..writeAsStringSync('# Requirement');
 
-      try {
-        final cmd = ImportCommand(
-          ImportInput(inputPath: file.path, outputDir: outputDir.path),
-        );
-        final output = await cmd.execute();
+        try {
+          final cmd = ImportCommand(
+            ImportInput(inputPath: file.path, outputDir: outputDir.path),
+          );
+          final output = await cmd.execute();
 
-        expect(
-          output.packagePath,
-          equals(p.join(outputDir.path, 'requirement.docmd')),
-        );
-        expect(
-          File(p.join(output.packagePath, 'content', 'document.md'))
-              .readAsStringSync(),
-          equals('# Requirement'),
-        );
-      } finally {
-        dir.deleteSync(recursive: true);
-      }
-    });
+          expect(
+            output.packagePath,
+            equals(p.join(outputDir.path, 'requirement.docmd')),
+          );
+          expect(
+            File(
+              p.join(output.packagePath, 'content', 'document.md'),
+            ).readAsStringSync(),
+            equals('# Requirement'),
+          );
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      },
+    );
 
     test('execute() converts docx inputs through pandoc', () async {
-      final dir = Directory.systemTemp.createTempSync('docmd_import_docx_test_');
-      final file = File('${dir.path}/requirement.docx')..writeAsStringSync('stub');
+      final dir = Directory.systemTemp.createTempSync(
+        'docmd_import_docx_test_',
+      );
+      final file = File('${dir.path}/requirement.docx')
+        ..writeAsStringSync('stub');
 
       String? capturedExe;
       List<String>? capturedArgs;
@@ -123,7 +137,8 @@ void main() {
     // --json consumer can read.
     test('execute() reports a failing engine as a CommandException', () async {
       final dir = Directory.systemTemp.createTempSync('docmd_import_toolfail_');
-      final file = File('${dir.path}/requirement.docx')..writeAsStringSync('stub');
+      final file = File('${dir.path}/requirement.docx')
+        ..writeAsStringSync('stub');
 
       try {
         final cmd = ImportCommand(
@@ -140,7 +155,7 @@ void main() {
           cmd.execute(),
           throwsA(
             isA<CommandException>()
-                .having((e) => e.code, 'code', 'ENGINE_FAILED')
+                .having((e) => e.id, 'id', 'engine-failed')
                 .having((e) => e.exitCode, 'exitCode', ExitCode.apiError)
                 // The tool's own diagnostic is the useful part — keep it.
                 .having((e) => e.message, 'message', contains('ModuleNotFound'))

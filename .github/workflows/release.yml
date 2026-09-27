@@ -70,9 +70,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset: docmd-windows-x64.zip
+            asset: docmd-windows-x64.exe
           - os: ubuntu-latest
-            asset: docmd-linux-x64.tar.gz
+            asset: docmd-linux-x64
     defaults:
       run:
         working-directory: code/cli
@@ -126,11 +126,17 @@ jobs:
       - name: Package release asset (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path build\* -DestinationPath ${{ matrix.asset }}
+        # InstallationPlugin writes this asset directly over the existing
+        # binary on upgrade, so the release asset must be the raw executable
+        # itself, not an archive.
+        run: Copy-Item build\bin\docmd.exe -Destination ${{ matrix.asset }}
 
       - name: Package release asset (Linux)
         if: runner.os == 'Linux'
-        run: tar czf ${{ matrix.asset }} -C build .
+        # Same as above: a raw executable, not a tarball.
+        run: |
+          cp build/bin/docmd ${{ matrix.asset }}
+          chmod +x ${{ matrix.asset }}
 
       - name: Upload release asset
         env:

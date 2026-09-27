@@ -16,7 +16,7 @@ End users do not need to preinstall the CLI manually.
 Managed install locations:
 
 - Windows: `%LOCALAPPDATA%\docmd\bin\docmd.exe`
-- Linux: `~/.docmd/bin/docmd`
+- Linux: `~/.local/bin/docmd`
 
 ## Module Layout
 

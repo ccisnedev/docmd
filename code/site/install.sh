@@ -7,9 +7,10 @@
 set -euo pipefail
 
 REPO="ccisnedev/docmd"
-INSTALL_DIR="$HOME/.docmd"
-BIN_DIR="$INSTALL_DIR/bin"
-ASSET_NAME="docmd-linux-x64.tar.gz"
+BIN_DIR="$HOME/.local/bin"
+ASSET_NAME="docmd-linux-x64"
+EXECUTABLE="docmd"
+ALIAS="dm"
 
 ARCH=$(uname -m)
 OS=$(uname -s)
@@ -39,31 +40,30 @@ fi
 echo "    Release: $TAG"
 echo "    Asset:   $ASSET_NAME"
 
-TEMP_FILE=$(mktemp /tmp/docmd-XXXXXX.tar.gz)
+# The release asset is the raw compiled executable, not an archive:
+# InstallationPlugin's `upgrade` command writes it directly over
+# $BIN_DIR/$EXECUTABLE's current location, so the installer does the
+# equivalent here on first install.
+mkdir -p "$BIN_DIR"
+TARGET_PATH="$BIN_DIR/$EXECUTABLE"
+TEMP_FILE=$(mktemp "$BIN_DIR/.$EXECUTABLE.XXXXXX")
 
 echo ">>> Downloading..."
 curl -fsSL -o "$TEMP_FILE" "$DOWNLOAD_URL"
+chmod +x "$TEMP_FILE"
+# Atomic swap: never leaves a half-written binary at $TARGET_PATH, and is
+# safe even if a previous docmd process is still running.
+mv -f "$TEMP_FILE" "$TARGET_PATH"
 
-if [ -d "$INSTALL_DIR" ]; then
-  echo ">>> Removing previous installation..."
-  rm -rf "$INSTALL_DIR"
-fi
+# `dm` is a short alias for `docmd`. It is a symlink, not a copy, so
+# `docmd doctor`'s alias check (which compares them by inode) recognizes them
+# as the same binary.
+ln -sf "$EXECUTABLE" "$BIN_DIR/$ALIAS"
+echo ">>> Alias configured: $BIN_DIR/$ALIAS -> $EXECUTABLE"
 
-echo ">>> Extracting..."
-mkdir -p "$INSTALL_DIR"
-tar xzf "$TEMP_FILE" -C "$INSTALL_DIR"
-rm -f "$TEMP_FILE"
-
-chmod +x "$BIN_DIR/docmd"
-
-LINK_DIR="$HOME/.local/bin"
-mkdir -p "$LINK_DIR"
-ln -sf "$BIN_DIR/docmd" "$LINK_DIR/docmd"
-echo ">>> Symlink configured: $LINK_DIR/docmd -> $BIN_DIR/docmd"
-
-if [[ ":$PATH:" != *":$LINK_DIR:"* ]]; then
-  export PATH="$LINK_DIR:$PATH"
-  echo ">>> Added $LINK_DIR to PATH for this session"
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+  export PATH="$BIN_DIR:$PATH"
+  echo ">>> Added $BIN_DIR to PATH for this session"
 fi
 
 for RC_FILE in "$HOME/.bashrc" "$HOME/.zshrc"; do
@@ -75,9 +75,9 @@ for RC_FILE in "$HOME/.bashrc" "$HOME/.zshrc"; do
 done
 
 echo ">>> Verifying installation..."
-VERSION_OUTPUT=$("$BIN_DIR/docmd" version)
+VERSION_OUTPUT=$("$TARGET_PATH" version)
 echo "    $VERSION_OUTPUT"
 
 echo ""
 echo ">>> DocMD CLI installed successfully!"
-echo "    Location: $INSTALL_DIR"
+echo "    Location: $TARGET_PATH"

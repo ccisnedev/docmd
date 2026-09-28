@@ -120,10 +120,14 @@ void main() {
     );
 
     test('render docx: --json before the operand is accepted', () async {
-      final sourceFile = File('${dir.path}/sample.md')
-        ..writeAsStringSync('# Sample');
+      // A missing input, not a real Markdown file: routing (this test's own
+      // concern) still has to run before validate() can even look at the
+      // path, so this exercises the same routing question as before, but
+      // used to also invoke real Pandoc for a path that resolved, which is
+      // not this test's job and fails on a machine without Pandoc.
+      final missingFile = '${dir.path}/missing.md';
 
-      final result = await _run(['render', '--json', sourceFile.path]);
+      final result = await _run(['render', '--json', missingFile]);
 
       expect(result.exitCode, equals(0));
       expect(_decode(result.stdout)['format'], equals('docx'));
@@ -132,21 +136,16 @@ void main() {
     test(
       'render --pdf: options before the operand parses past routing, unlike the old order',
       () async {
-        final sourceFile = File('${dir.path}/sample.md')
-          ..writeAsStringSync('# Sample');
+        final missingFile = '${dir.path}/missing.md';
 
-        final result = await _run([
-          'render',
-          '--pdf',
-          '--json',
-          sourceFile.path,
-        ]);
+        final result = await _run(['render', '--pdf', '--json', missingFile]);
 
         // Whether this machine has LibreOffice installed to actually
         // produce a PDF is not this test's concern; only that cli_router
         // accepted the argument order and dispatched to the render
         // command, rather than rejecting it as misplaced-option.
         expect(result.stderr, isNot(contains('[misplaced-option]')));
+        expect(result.exitCode, equals(0));
       },
     );
 

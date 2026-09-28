@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Upgraded to `modular_cli_sdk` ^0.8.0** (from ^0.7.0). 0.8.0 rewrote
+  `InstallationPlugin`, which docmd does not use: `upgrade` and `uninstall`
+  stay docmd's own hand-rolled commands (see the PR body for why). The only
+  adaptation needed was hiding the SDK's newly exported `PlatformOps` from
+  `modules/global/commands/upgrade.dart`, since docmd already declares its
+  own `PlatformOps` abstraction under that name and the two collided as an
+  ambiguous import.
+- **`bench` and `setup` now accept the SDK's global options** (`--json`,
+  `--quiet`, `--help`), matching every other command. Both were registered
+  with `globals: false`, so passing `--json` to either was rejected as an
+  unknown option instead of being honored.
+
+### Fixed
+
+- **The real-document integration tests now skip with an explicit reason**
+  when Pandoc is not installed, instead of a bare boolean skip that showed
+  no message about why the test did not run.
+
 ## 0.2.3 — 2026-07-21
 
 ### Added

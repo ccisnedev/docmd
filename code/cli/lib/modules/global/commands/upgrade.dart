@@ -4,7 +4,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cli_router/cli_router.dart';
-import 'package:modular_cli_sdk/modular_cli_sdk.dart';
+// modular_cli_sdk 0.8.0 introduced its own PlatformOps (backing its
+// InstallationPlugin, which docmd does not use). docmd has its own
+// PlatformOps abstraction below, predating that export; hide the SDK's to
+// keep this file's PlatformOps unambiguous, the same way global_builder.dart
+// already hides the SDK's Upgrade*/Uninstall* types.
+import 'package:modular_cli_sdk/modular_cli_sdk.dart' hide PlatformOps;
 import 'package:path/path.dart' as p;
 
 import '../../../src/platform/platform_ops.dart';
@@ -12,7 +17,8 @@ import '../../../src/version.dart';
 import '../../../src/version_check.dart';
 
 const String _repo = 'ccisnedev/docmd';
-const String _latestReleaseUrl = 'https://api.github.com/repos/$_repo/releases/latest';
+const String _latestReleaseUrl =
+    'https://api.github.com/repos/$_repo/releases/latest';
 
 class UpgradeInput extends Input {
   UpgradeInput();
@@ -65,16 +71,19 @@ class UpgradeOutput extends Output {
   }
 }
 
-typedef FetchReleaseJson = Future<Map<String, dynamic>> Function(
-  String url,
-  Map<String, String> headers,
-);
-typedef DownloadReleaseAsset = Future<void> Function(
-  String url,
-  String destPath,
-  Map<String, String> headers,
-);
-typedef ExecFileText = Future<String> Function(String executable, List<String> arguments);
+typedef FetchReleaseJson =
+    Future<Map<String, dynamic>> Function(
+      String url,
+      Map<String, String> headers,
+    );
+typedef DownloadReleaseAsset =
+    Future<void> Function(
+      String url,
+      String destPath,
+      Map<String, String> headers,
+    );
+typedef ExecFileText =
+    Future<String> Function(String executable, List<String> arguments);
 typedef DeletePath = Future<void> Function(String path);
 typedef EnsureDirectory = Future<void> Function(String path);
 
@@ -111,14 +120,17 @@ class UpgradeDeps {
     PlatformOps? platformOps,
   }) : platform = platform ?? Platform.operatingSystem,
        resolvedExecutable = resolvedExecutable ?? Platform.resolvedExecutable,
-       directoryExists = directoryExists ?? ((path) => Directory(path).existsSync()),
+       directoryExists =
+           directoryExists ?? ((path) => Directory(path).existsSync()),
        fetchJson = fetchJson ?? _fetchJson,
        downloadFile = downloadFile ?? _downloadFile,
        execFile = execFile ?? _execFile,
        deletePath = deletePath ?? _deletePath,
        ensureDirectory = ensureDirectory ?? _ensureDirectory,
-       tempDirectoryPath = tempDirectoryPath ?? (() => Directory.systemTemp.path),
-       platformOps = platformOps ??
+       tempDirectoryPath =
+           tempDirectoryPath ?? (() => Directory.systemTemp.path),
+       platformOps =
+           platformOps ??
            PlatformOps.forPlatform(platform ?? Platform.operatingSystem);
 }
 
@@ -128,7 +140,8 @@ class UpgradeCommand implements Query<UpgradeInput, UpgradeOutput> {
 
   final UpgradeDeps _deps;
 
-  UpgradeCommand(this.input, {UpgradeDeps? deps}) : _deps = deps ?? UpgradeDeps();
+  UpgradeCommand(this.input, {UpgradeDeps? deps})
+    : _deps = deps ?? UpgradeDeps();
 
   @override
   String? validate() => null;
@@ -159,16 +172,15 @@ class UpgradeCommand implements Query<UpgradeInput, UpgradeOutput> {
     stderr.writeln('Current version: $docmdVersion');
     stderr.writeln('Checking for updates...');
 
-    final release = await _deps.fetchJson(
-      _latestReleaseUrl,
-      {
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'docmd-cli/$docmdVersion',
-      },
-    );
+    final release = await _deps.fetchJson(_latestReleaseUrl, {
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'docmd-cli/$docmdVersion',
+    });
 
     final tagName = '${release['tag_name'] ?? ''}';
-    final latestVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
+    final latestVersion = tagName.startsWith('v')
+        ? tagName.substring(1)
+        : tagName;
 
     if (!isNewerVersion(latestVersion, docmdVersion)) {
       return UpgradeOutput(
@@ -189,7 +201,9 @@ class UpgradeCommand implements Query<UpgradeInput, UpgradeOutput> {
     );
 
     if (asset == null) {
-      throw StateError('No $assetName asset found in release ${release['tag_name']}.');
+      throw StateError(
+        'No $assetName asset found in release ${release['tag_name']}.',
+      );
     }
 
     final archivePath = paths.join(
@@ -197,11 +211,9 @@ class UpgradeCommand implements Query<UpgradeInput, UpgradeOutput> {
       'docmd-$latestVersion-${asset['name']}',
     );
     stderr.writeln('Downloading ${asset['name']}...');
-    await _deps.downloadFile(
-      '${asset['browser_download_url']}',
-      archivePath,
-      {'User-Agent': 'docmd-cli/$docmdVersion'},
-    );
+    await _deps.downloadFile('${asset['browser_download_url']}', archivePath, {
+      'User-Agent': 'docmd-cli/$docmdVersion',
+    });
 
     // The install is entirely platform-polymorphic — every step below is a
     // no-op on the platform it does not apply to, so there is no OS branching
@@ -213,7 +225,10 @@ class UpgradeCommand implements Query<UpgradeInput, UpgradeOutput> {
     await _deps.ensureDirectory(installPath);
     await platformOps.expandArchive(archivePath, installPath);
     await platformOps.makeExecutable(binaryPath);
-    await platformOps.linkIntoUserPath(binaryPath, userHome: _resolveHomeDirectory(_deps));
+    await platformOps.linkIntoUserPath(
+      binaryPath,
+      userHome: _resolveHomeDirectory(_deps),
+    );
 
     await _deps.deletePath(archivePath);
     await platformOps.removeBackup(binaryPath);
@@ -239,7 +254,8 @@ String? _resolveManagedInstallPath(UpgradeDeps deps) {
   final paths = _pathContext(deps.platform);
 
   if (deps.platform == 'windows' || deps.platform == 'win32') {
-    final localAppData = deps.localAppData ?? Platform.environment['LOCALAPPDATA'];
+    final localAppData =
+        deps.localAppData ?? Platform.environment['LOCALAPPDATA'];
     if (localAppData == null || localAppData.isEmpty) {
       return null;
     }
@@ -271,7 +287,8 @@ String? _resolveManagedBinaryPath(UpgradeDeps deps) {
 }
 
 String? _resolveHomeDirectory(UpgradeDeps deps) {
-  final home = deps.homeDirectory ??
+  final home =
+      deps.homeDirectory ??
       Platform.environment['HOME'] ??
       Platform.environment['USERPROFILE'];
   return (home == null || home.isEmpty) ? null : home;
@@ -297,7 +314,10 @@ Future<Map<String, dynamic>> _fetchJson(
 
     final response = await request.close();
     if (response.statusCode != 200) {
-      throw HttpException('GitHub API request failed: HTTP ${response.statusCode}', uri: Uri.parse(url));
+      throw HttpException(
+        'GitHub API request failed: HTTP ${response.statusCode}',
+        uri: Uri.parse(url),
+      );
     }
 
     final body = await response.transform(utf8.decoder).join();
@@ -319,14 +339,20 @@ Future<void> _downloadFile(
     headers.forEach(request.headers.set);
     final response = await request.close();
 
-    if (response.isRedirect && response.headers.value(HttpHeaders.locationHeader) != null) {
+    if (response.isRedirect &&
+        response.headers.value(HttpHeaders.locationHeader) != null) {
       await response.drain<void>();
-      await downloadFrom(uri.resolve(response.headers.value(HttpHeaders.locationHeader)!));
+      await downloadFrom(
+        uri.resolve(response.headers.value(HttpHeaders.locationHeader)!),
+      );
       return;
     }
 
     if (response.statusCode != 200) {
-      throw HttpException('Download failed: HTTP ${response.statusCode}', uri: uri);
+      throw HttpException(
+        'Download failed: HTTP ${response.statusCode}',
+        uri: uri,
+      );
     }
 
     final file = File(destPath)..createSync(recursive: true);
@@ -346,7 +372,12 @@ Future<void> _downloadFile(
 Future<String> _execFile(String executable, List<String> arguments) async {
   final result = await Process.run(executable, arguments);
   if (result.exitCode != 0) {
-    throw ProcessException(executable, arguments, '${result.stderr}'.trim(), result.exitCode);
+    throw ProcessException(
+      executable,
+      arguments,
+      '${result.stderr}'.trim(),
+      result.exitCode,
+    );
   }
 
   return '${result.stdout}'.trim();

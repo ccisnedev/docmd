@@ -119,18 +119,24 @@ void main() {
       },
     );
 
-    test('render docx: --json before the operand is accepted', () async {
-      // A missing input, not a real Markdown file: routing (this test's own
-      // concern) still has to run before validate() can even look at the
-      // path, so this exercises the same routing question as before, but
-      // used to also invoke real Pandoc for a path that resolved, which is
-      // not this test's job and fails on a machine without Pandoc.
+    test('render docx: --json before the operand routes past parsing, '
+        'reaching a missing-input error rather than real conversion', () async {
+      // A missing input, not a real Markdown file: this only needs to
+      // prove cli_router accepted the argument order and dispatched to
+      // the render query. RenderCommand.validate() runs before execute(),
+      // so a missing path is rejected before Pandoc is ever invoked, and
+      // the test needs neither Pandoc nor LibreOffice installed. Actual
+      // conversion is exercised by real_document_integration_test.dart,
+      // which is guarded on both tools being present.
       final missingFile = '${dir.path}/missing.md';
 
       final result = await _run(['render', '--json', missingFile]);
 
-      expect(result.exitCode, equals(0));
-      expect(_decode(result.stdout)['format'], equals('docx'));
+      expect(result.stderr, isNot(contains('[misplaced-option]')));
+      final error = _decode(result.stderr)['error'] as Map<String, dynamic>;
+      expect(error['id'], equals('validation-failed'));
+      expect(error['message'], contains('Input path not found'));
+      expect(result.exitCode, equals(7));
     });
 
     test(
@@ -141,11 +147,16 @@ void main() {
         final result = await _run(['render', '--pdf', '--json', missingFile]);
 
         // Whether this machine has LibreOffice installed to actually
-        // produce a PDF is not this test's concern; only that cli_router
-        // accepted the argument order and dispatched to the render
-        // command, rather than rejecting it as misplaced-option.
+        // produce a PDF is not this test's concern, and neither is Pandoc:
+        // RenderCommand.validate() rejects the missing input before
+        // execute() ever runs either tool, so this only exercises that
+        // cli_router accepted the argument order and dispatched to render,
+        // rather than rejecting it as misplaced-option.
         expect(result.stderr, isNot(contains('[misplaced-option]')));
-        expect(result.exitCode, equals(0));
+        final error = _decode(result.stderr)['error'] as Map<String, dynamic>;
+        expect(error['id'], equals('validation-failed'));
+        expect(error['message'], contains('Input path not found'));
+        expect(result.exitCode, equals(7));
       },
     );
 

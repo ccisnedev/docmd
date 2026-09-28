@@ -16,6 +16,17 @@
   with `globals: false`, so passing `--json` to either was rejected as an
   unknown option instead of being honored.
 
+### Fixed
+
+- **The render routing tests no longer depend on Pandoc or LibreOffice
+  being installed.** `test/vscode_extension_argument_order_test.dart`'s
+  "render docx" and "render --pdf" tests exercised real rendering against
+  an existing input, purely to check argument order; they now point at a
+  missing input instead, which reaches the same validation-failed error
+  before Pandoc or LibreOffice would ever be invoked. Actual conversion
+  stays covered by `real_document_integration_test.dart`, already guarded
+  on both tools being present.
+
 ## 0.2.3 — 2026-07-21
 
 ### Added

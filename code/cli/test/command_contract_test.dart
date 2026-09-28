@@ -123,4 +123,21 @@ void main() {
       expect(err, isNot(contains('unknown option')));
     });
   });
+
+  // bench and setup were registered with globals: false, so the SDK's own
+  // --json/--quiet/--help were rejected as unknown options on both routes,
+  // unlike every other route in this CLI.
+  group('global options are honored on every route', () {
+    test('bench --json is not rejected as an unknown option', () async {
+      final (code, err) = await _run(['bench', '--json', tempDir.path]);
+      expect(err, isNot(contains("unknown option '--json'")));
+      expect(code, 0);
+    });
+
+    test('setup --json is not rejected as an unknown option', () async {
+      final (code, err) = await _run(['setup', '--json', 'docx']);
+      expect(err, isNot(contains("unknown option '--json'")));
+      expect(code, 0);
+    });
+  });
 }

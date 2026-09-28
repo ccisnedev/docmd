@@ -9,9 +9,20 @@ import 'package:docmd_cli/docmd_cli.dart';
 import 'package:docmd_cli/modules/importing/commands/import_file.dart';
 import 'package:docmd_cli/modules/render/commands/render_file.dart';
 
+import 'support/tool_skip.dart';
+
 final bool _hasPandoc = _toolExists('pandoc');
 final bool _hasLibreOffice = _toolExists(
   Platform.isWindows ? 'soffice.exe' : 'soffice',
+);
+
+final Object _pandocSkip = toolSkipReason(
+  available: _hasPandoc,
+  tool: 'Pandoc',
+);
+final Object _pandocAndLibreOfficeSkip = toolSkipReason(
+  available: _hasPandoc && _hasLibreOffice,
+  tool: 'Pandoc and LibreOffice',
 );
 
 void main() {
@@ -49,7 +60,7 @@ void main() {
           tempDir.deleteSync(recursive: true);
         }
       },
-      skip: !_hasPandoc,
+      skip: _pandocSkip,
     );
 
     test(
@@ -103,7 +114,7 @@ void main() {
           }
         }
       },
-      skip: !_hasPandoc,
+      skip: _pandocSkip,
     );
 
     test(
@@ -151,7 +162,7 @@ void main() {
           tempDir.deleteSync(recursive: true);
         }
       },
-      skip: !_hasPandoc,
+      skip: _pandocSkip,
     );
 
     test(
@@ -179,7 +190,7 @@ void main() {
           tempDir.deleteSync(recursive: true);
         }
       },
-      skip: !_hasPandoc || !_hasLibreOffice,
+      skip: _pandocAndLibreOfficeSkip,
     );
   });
 }

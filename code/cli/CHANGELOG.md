@@ -16,12 +16,6 @@
   with `globals: false`, so passing `--json` to either was rejected as an
   unknown option instead of being honored.
 
-### Fixed
-
-- **The real-document integration tests now skip with an explicit reason**
-  when Pandoc is not installed, instead of a bare boolean skip that showed
-  no message about why the test did not run.
-
 ## 0.2.3 — 2026-07-21
 
 ### Added

@@ -6,7 +6,7 @@ void buildSetupModule(ModuleBuilder m) {
   m.query<SetupInput, SetupOutput>(
     '<capability>',
     (req) => SetupCommand(SetupInput.fromCliRequest(req)),
-    globals: false,
+    globals: true,
     contract: SetupInput.contract,
     description: 'Install the tools DocMD needs (pandoc, LibreOffice)',
   );

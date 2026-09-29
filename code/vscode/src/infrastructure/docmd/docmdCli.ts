@@ -55,7 +55,12 @@ export interface DocmdDoctorCheck {
 }
 
 export interface DocmdDoctorResult {
-  checks: DocmdDoctorCheck[];
+  /**
+   * An array of per-check statuses, or, from a CLI installed before the
+   * modular_cli_sdk DoctorPlugin migration, a map of tool name to whether
+   * it was found.
+   */
+  checks: DocmdDoctorCheck[] | Record<string, boolean>;
 }
 
 export class DocmdCli {

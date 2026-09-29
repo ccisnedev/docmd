@@ -10,6 +10,7 @@ import 'modules/global/global_builder.dart';
 import 'modules/importing/import_builder.dart';
 import 'modules/render/render_builder.dart';
 import 'modules/setup/setup_builder.dart';
+import 'src/installation/docmd_installation.dart';
 import 'src/version.dart';
 
 Future<int> runDocmd(
@@ -22,7 +23,8 @@ Future<int> runDocmd(
       ModularCli(suggestionDistance: 2, name: 'docmd', version: docmdVersion)
         ..plugin(VersionPlugin(version: docmdVersion))
         ..plugin(const DoctorPlugin())
-        ..plugin(DocmdDoctorChecksPlugin());
+        ..plugin(DocmdDoctorChecksPlugin())
+        ..plugin(InstallationPlugin(config: docmdInstallationConfig));
 
   cli.module('', (m) => buildGlobalModule(m));
   cli.module('import', (m) => buildImportModule(m));

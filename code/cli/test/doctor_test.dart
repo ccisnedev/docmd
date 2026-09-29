@@ -43,71 +43,86 @@ void main() {
     // origin/main's doctor reported one capability per import/render
     // format, projected from the installed tools. The DoctorPlugin
     // migration keeps that report as one doctor check per capability.
-    test('reports every import and render capability when both tools are found', () async {
-      final plugin = DocmdDoctorChecksPlugin(
-        resolvePandocExecutable: () => '/usr/bin/pandoc',
-        resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-      );
+    test(
+      'reports every import and render capability when both tools are found',
+      () async {
+        final plugin = DocmdDoctorChecksPlugin(
+          resolvePandocExecutable: () => '/usr/bin/pandoc',
+          resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+        );
 
-      final checks = await _contributedChecks(plugin);
-      final byName = {for (final c in checks) c.name: await c.run()};
+        final checks = await _contributedChecks(plugin);
+        final byName = {for (final c in checks) c.name: await c.run()};
 
-      expect(
-        byName.keys,
-        containsAll([
-          'import md',
-          'import docx',
-          'import pdf',
-          'import pptx',
-          'import xlsx',
-          'render docx',
-          'render pdf',
-        ]),
-      );
-      expect(byName['import docx']!.status, equals(CliCheckStatus.ok));
-      expect(byName['import docx']!.message, contains('available (pandoc)'));
-      expect(byName['import md']!.message, contains('available (passthrough)'));
-      expect(byName['render pdf']!.status, equals(CliCheckStatus.ok));
-      expect(
-        byName['render pdf']!.message,
-        contains('available (pandoc+libreoffice)'),
-      );
-    });
+        expect(
+          byName.keys,
+          containsAll([
+            'import md',
+            'import docx',
+            'import pdf',
+            'import pptx',
+            'import xlsx',
+            'render docx',
+            'render pdf',
+          ]),
+        );
+        expect(byName['import docx']!.status, equals(CliCheckStatus.ok));
+        expect(byName['import docx']!.message, contains('available (pandoc)'));
+        expect(
+          byName['import md']!.message,
+          contains('available (passthrough)'),
+        );
+        expect(byName['render pdf']!.status, equals(CliCheckStatus.ok));
+        expect(
+          byName['render pdf']!.message,
+          contains('available (pandoc+libreoffice)'),
+        );
+      },
+    );
 
-    test('warns on a capability a missing tool disables, with its hint', () async {
-      final plugin = DocmdDoctorChecksPlugin(
-        resolvePandocExecutable: () => null,
-        resolveLibreOfficeExecutable: () => null,
-      );
+    test(
+      'warns on a capability a missing tool disables, with its hint',
+      () async {
+        final plugin = DocmdDoctorChecksPlugin(
+          resolvePandocExecutable: () => null,
+          resolveLibreOfficeExecutable: () => null,
+        );
 
-      final checks = await _contributedChecks(plugin);
-      final byName = {for (final c in checks) c.name: await c.run()};
+        final checks = await _contributedChecks(plugin);
+        final byName = {for (final c in checks) c.name: await c.run()};
 
-      expect(byName['import docx']!.status, equals(CliCheckStatus.warning));
-      expect(byName['import docx']!.message, contains('docmd setup docx'));
-      expect(byName['render docx']!.status, equals(CliCheckStatus.warning));
-      expect(byName['render pdf']!.status, equals(CliCheckStatus.warning));
-      expect(byName['render pdf']!.message, contains('docmd setup docx'));
-      expect(byName['render pdf']!.message, contains('docmd setup pdf'));
-      expect(byName['import pdf']!.status, equals(CliCheckStatus.ok));
-    });
+        expect(byName['import docx']!.status, equals(CliCheckStatus.warning));
+        expect(byName['import docx']!.message, contains('docmd setup docx'));
+        expect(byName['render docx']!.status, equals(CliCheckStatus.warning));
+        expect(byName['render pdf']!.status, equals(CliCheckStatus.warning));
+        expect(byName['render pdf']!.message, contains('docmd setup docx'));
+        expect(byName['render pdf']!.message, contains('docmd setup pdf'));
+        expect(byName['import pdf']!.status, equals(CliCheckStatus.ok));
+      },
+    );
 
     // xlsx has no real engine yet: that is a fact about docmd, not about
     // this machine, so it is reported without turning doctor into a
     // warning on every installation.
-    test('reports the unwired xlsx import as unavailable without a warning', () async {
-      final plugin = DocmdDoctorChecksPlugin(
-        resolvePandocExecutable: () => '/usr/bin/pandoc',
-        resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
-      );
+    test(
+      'reports the unwired xlsx import as unavailable without a warning',
+      () async {
+        final plugin = DocmdDoctorChecksPlugin(
+          resolvePandocExecutable: () => '/usr/bin/pandoc',
+          resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+        );
 
-      final checks = await _contributedChecks(plugin);
-      final byName = {for (final c in checks) c.name: await c.run()};
+        final checks = await _contributedChecks(plugin);
+        final byName = {for (final c in checks) c.name: await c.run()};
 
-      expect(byName['import xlsx']!.status, equals(CliCheckStatus.ok));
-      expect(byName['import xlsx']!.message, contains('unavailable (placeholder)'));
-      expect(byName['import xlsx']!.message, contains('planned'));
-    });
+        expect(byName['import xlsx']!.status, equals(CliCheckStatus.ok));
+        expect(
+          byName['import xlsx']!.message,
+          contains('unavailable (placeholder)'),
+        );
+        expect(byName['import xlsx']!.message, contains('planned'));
+      },
+    );
 
     test(
       'declares its manifest id and requires the doctor extension point',

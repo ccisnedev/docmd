@@ -4,6 +4,16 @@
 
 ### Changed
 
+- **`doctor` reports import and render capabilities again.** The move to
+  `modular_cli_sdk`'s `DoctorPlugin` had dropped the per-capability report
+  (`import md|docx|pdf|pptx|xlsx`, `render docx|pdf`). Each capability is now
+  its own doctor check: ok when available, a warning with the install hint
+  when a missing Pandoc or LibreOffice disables it, and ok but marked
+  unavailable for `import xlsx`, which has no engine wired yet.
+- **The VS Code extension reads both `doctor --json` shapes**: the current
+  array of checks and the `{name: bool}` map a CLI installed before this
+  release still prints, so an existing installation no longer makes the
+  doctor command fail.
 - **Upgraded `modular_cli_sdk` to ^0.8.1** (from ^0.8.0, itself bumped from
   ^0.7.0 earlier in this cycle) **and `cli_router` to ^0.2.1** (from ^0.2.0).
   `cli_router` 0.2.1 permutes an option that follows its operand by default

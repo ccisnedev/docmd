@@ -58,3 +58,28 @@ test('summarizeDoctorResult prioritizes failing checks over warnings', () => {
     message: 'DocMD doctor completed with failing checks: pandoc.',
   });
 });
+
+// A CLI installed before the modular_cli_sdk DoctorPlugin migration still
+// answers `doctor --json` with `checks` as a name-to-boolean map. The
+// extension must keep reading it the way it did before.
+test('summarizeDoctorResult accepts the legacy checks map when every tool is present', () => {
+  const summary = summarizeDoctorResult({
+    checks: { pandoc: true, libreoffice: true },
+  });
+
+  assert.deepEqual(summary, {
+    level: 'info',
+    message: 'DocMD doctor completed: all checks passed.',
+  });
+});
+
+test('summarizeDoctorResult names missing tools from the legacy checks map', () => {
+  const summary = summarizeDoctorResult({
+    checks: { pandoc: true, libreoffice: false },
+  });
+
+  assert.deepEqual(summary, {
+    level: 'warning',
+    message: 'DocMD doctor completed with failing checks: libreoffice.',
+  });
+});

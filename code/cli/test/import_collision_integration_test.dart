@@ -10,11 +10,18 @@ import 'package:docmd_cli/docmd_cli.dart';
 void main() {
   group('Import collision integration', () {
     test('overwrites an existing package when --overwrite is passed', () async {
-      final dir = Directory.systemTemp.createTempSync('docmd_import_overwrite_');
-      final sourceFile = File(p.join(dir.path, 'sample.md'))..writeAsStringSync('# First version');
+      final dir = Directory.systemTemp.createTempSync(
+        'docmd_import_overwrite_',
+      );
+      final sourceFile = File(p.join(dir.path, 'sample.md'))
+        ..writeAsStringSync('# First version');
 
       try {
-        final initial = await _runDocmdJson(['import', sourceFile.path, '--json']);
+        final initial = await _runDocmdJson([
+          'import',
+          '--json',
+          sourceFile.path,
+        ]);
         expect(initial.exitCode, equals(0));
 
         final packagePath = initial.stdoutJson['packagePath'] as String;
@@ -23,15 +30,17 @@ void main() {
 
         final overwrite = await _runDocmdJson([
           'import',
-          sourceFile.path,
           '--overwrite',
           '--json',
+          sourceFile.path,
         ]);
 
         expect(overwrite.exitCode, equals(0));
         expect(overwrite.stdoutJson['packagePath'], equals(packagePath));
         expect(
-          File(p.join(packagePath, 'content', 'document.md')).readAsStringSync(),
+          File(
+            p.join(packagePath, 'content', 'document.md'),
+          ).readAsStringSync(),
           equals('# Second version'),
         );
         expect(File(p.join(packagePath, 'stale.txt')).existsSync(), isFalse);
@@ -40,43 +49,66 @@ void main() {
       }
     });
 
-    test('creates the next available suffixed package when --suffix is passed', () async {
-      final dir = Directory.systemTemp.createTempSync('docmd_import_suffix_');
-      final sourceFile = File(p.join(dir.path, 'sample.md'))..writeAsStringSync('# Sample');
+    test(
+      'creates the next available suffixed package when --suffix is passed',
+      () async {
+        final dir = Directory.systemTemp.createTempSync('docmd_import_suffix_');
+        final sourceFile = File(p.join(dir.path, 'sample.md'))
+          ..writeAsStringSync('# Sample');
 
-      try {
-        final first = await _runDocmdJson(['import', sourceFile.path, '--json']);
-        final second = await _runDocmdJson(['import', sourceFile.path, '--suffix', '--json']);
-        final third = await _runDocmdJson(['import', sourceFile.path, '--suffix', '--json']);
+        try {
+          final first = await _runDocmdJson([
+            'import',
+            '--json',
+            sourceFile.path,
+          ]);
+          final second = await _runDocmdJson([
+            'import',
+            '--suffix',
+            '--json',
+            sourceFile.path,
+          ]);
+          final third = await _runDocmdJson([
+            'import',
+            '--suffix',
+            '--json',
+            sourceFile.path,
+          ]);
 
-        expect(first.exitCode, equals(0));
-        expect(second.exitCode, equals(0));
-        expect(third.exitCode, equals(0));
+          expect(first.exitCode, equals(0));
+          expect(second.exitCode, equals(0));
+          expect(third.exitCode, equals(0));
 
-        expect(first.stdoutJson['packagePath'], endsWith('sample.docmd'));
-        expect(second.stdoutJson['packagePath'], endsWith('sample-2.docmd'));
-        expect(third.stdoutJson['packagePath'], endsWith('sample-3.docmd'));
-      } finally {
-        dir.deleteSync(recursive: true);
-      }
-    });
+          expect(first.stdoutJson['packagePath'], endsWith('sample.docmd'));
+          expect(second.stdoutJson['packagePath'], endsWith('sample-2.docmd'));
+          expect(third.stdoutJson['packagePath'], endsWith('sample-3.docmd'));
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      },
+    );
 
     test('rejects --overwrite together with --suffix', () async {
       final dir = Directory.systemTemp.createTempSync('docmd_import_conflict_');
-      final sourceFile = File(p.join(dir.path, 'sample.md'))..writeAsStringSync('# Sample');
+      final sourceFile = File(p.join(dir.path, 'sample.md'))
+        ..writeAsStringSync('# Sample');
 
       try {
         final result = await _runDocmdJson([
           'import',
-          sourceFile.path,
           '--overwrite',
           '--suffix',
           '--json',
+          sourceFile.path,
         ]);
 
         expect(result.exitCode, equals(7));
-        expect(result.stderrJson['error'], equals('VALIDATION_FAILED'));
-        expect(result.stderrJson['message'], contains('Choose either --overwrite or --suffix'));
+        final error = result.stderrJson['error'] as Map<String, dynamic>;
+        expect(error['id'], equals('validation-failed'));
+        expect(
+          error['message'],
+          contains('Choose either --overwrite or --suffix'),
+        );
       } finally {
         dir.deleteSync(recursive: true);
       }
@@ -97,7 +129,11 @@ Future<_JsonRunResult> _runDocmdJson(List<String> args) async {
   final stderrSink = IOSink(stderrController.sink);
 
   try {
-    final exitCode = await runDocmd(args, stdout: stdoutSink, stderr: stderrSink);
+    final exitCode = await runDocmd(
+      args,
+      stdout: stdoutSink,
+      stderr: stderrSink,
+    );
 
     await stdoutSink.flush();
     await stderrSink.flush();
@@ -109,8 +145,12 @@ Future<_JsonRunResult> _runDocmdJson(List<String> args) async {
 
     return _JsonRunResult(
       exitCode: exitCode,
-      stdoutJson: stdoutText.isEmpty ? const {} : jsonDecode(stdoutText) as Map<String, dynamic>,
-      stderrJson: stderrText.isEmpty ? const {} : jsonDecode(stderrText) as Map<String, dynamic>,
+      stdoutJson: stdoutText.isEmpty
+          ? const {}
+          : jsonDecode(stdoutText) as Map<String, dynamic>,
+      stderrJson: stderrText.isEmpty
+          ? const {}
+          : jsonDecode(stderrText) as Map<String, dynamic>,
     );
   } finally {
     await stdoutController.close();

@@ -28,29 +28,52 @@ class ImportInput extends Input {
     final outputDir = req.flagString('output-dir') ?? req.flagString('output');
 
     return ImportInput(
-      inputPath: req.params['input'] ?? '',
+      inputPath: req.param('input') ?? '',
       outputDir: outputDir?.trim().isEmpty == true ? null : outputDir?.trim(),
       overwrite: req.flagBool('overwrite'),
       suffix: req.flagBool('suffix'),
     );
   }
 
-  static final List<CliParam> params = [
-    CliParam.positional('input', description: 'Path to the document to import'),
-    CliParam.string(
-      'output-dir',
-      description: 'Directory to create the DocMD package in',
-    ),
-    CliParam.string('output', description: 'Alias of --output-dir'),
-    CliParam.boolean('overwrite', description: 'Replace an existing package'),
-    CliParam.boolean(
-      'suffix',
-      description: 'Create a numbered copy when the package already exists',
-    ),
-  ];
-
-  @override
-  List<CliParam> get schemaFields => params;
+  static final CliContract contract = CliContract(
+    positionals: [
+      CliPositional.string(
+        'input',
+        required: true,
+        description: 'Path to the document to import',
+      ),
+    ],
+    options: [
+      CliParam.string(
+        'output-dir',
+        abbr: null,
+        required: false,
+        repeatable: false,
+        defaultValue: null,
+        description: 'Directory to create the DocMD package in',
+      ),
+      CliParam.string(
+        'output',
+        abbr: null,
+        required: false,
+        repeatable: false,
+        defaultValue: null,
+        description: 'Alias of --output-dir',
+      ),
+      CliParam.flag(
+        'overwrite',
+        abbr: null,
+        repeatable: false,
+        description: 'Replace an existing package',
+      ),
+      CliParam.flag(
+        'suffix',
+        abbr: null,
+        repeatable: false,
+        description: 'Create a numbered copy when the package already exists',
+      ),
+    ],
+  );
 
   @override
   Map<String, dynamic> toJson() => {
@@ -123,7 +146,7 @@ class ImportOutput extends Output {
   }
 }
 
-class ImportCommand implements Command<ImportInput, ImportOutput> {
+class ImportCommand implements Query<ImportInput, ImportOutput> {
   @override
   final ImportInput input;
   final IngestionRegistry _registry;
@@ -173,7 +196,10 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
   Future<ImportOutput> execute() async {
     final source = File(input.inputPath).absolute;
     final layout = _resolveLayout(source.path);
-    final sourceFormat = p.extension(source.path).toLowerCase().replaceFirst('.', '');
+    final sourceFormat = p
+        .extension(source.path)
+        .toLowerCase()
+        .replaceFirst('.', '');
 
     if (input.overwrite && layout.exists) {
       Directory(layout.rootPath).deleteSync(recursive: true);
@@ -199,7 +225,7 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
       );
     } on ProcessException catch (e) {
       throw CommandException(
-        code: 'ENGINE_FAILED',
+        id: 'engine-failed',
         message: e.message,
         exitCode: ExitCode.apiError,
         details: {'engine': backend.engineId, 'format': sourceFormat},
@@ -219,7 +245,10 @@ class ImportCommand implements Command<ImportInput, ImportOutput> {
       packagePath: layout.rootPath,
       manifestPath: layout.manifestPath,
       canonicalDocumentPath: layout.canonicalDocumentPath,
-      originalSourcePath: p.join(layout.originalsDirPath, p.basename(source.path)),
+      originalSourcePath: p.join(
+        layout.originalsDirPath,
+        p.basename(source.path),
+      ),
       status: status,
       mediaExtracted: result.mediaExtracted,
       mediaReferenced: result.mediaReferenced,

@@ -3,10 +3,11 @@ import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 import 'commands/setup.dart';
 
 void buildSetupModule(ModuleBuilder m) {
-  m.command<SetupInput, SetupOutput>(
+  m.query<SetupInput, SetupOutput>(
     '<capability>',
     (req) => SetupCommand(SetupInput.fromCliRequest(req)),
+    globals: true,
+    contract: SetupInput.contract,
     description: 'Install the tools DocMD needs (pandoc, LibreOffice)',
-    params: SetupInput.params,
   );
 }

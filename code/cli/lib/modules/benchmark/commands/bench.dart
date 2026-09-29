@@ -19,25 +19,32 @@ class BenchInput extends Input {
   factory BenchInput.fromCliRequest(CliRequest req) {
     final reference = req.flagString('reference')?.trim();
     return BenchInput(
-      corpusPath: req.params['corpus'] ?? '',
-      referenceEngine:
-          reference == null || reference.isEmpty ? null : reference,
+      corpusPath: req.param('corpus') ?? '',
+      referenceEngine: reference == null || reference.isEmpty
+          ? null
+          : reference,
     );
   }
 
-  static final List<CliParam> params = [
-    CliParam.positional(
-      'corpus',
-      description: 'Directory of source documents to benchmark',
-    ),
-    CliParam.string(
-      'reference',
-      description: 'Engine id to measure text recall against (e.g. docling)',
-    ),
-  ];
-
-  @override
-  List<CliParam> get schemaFields => params;
+  static final CliContract contract = CliContract(
+    positionals: [
+      CliPositional.string(
+        'corpus',
+        required: true,
+        description: 'Directory of source documents to benchmark',
+      ),
+    ],
+    options: [
+      CliParam.string(
+        'reference',
+        abbr: null,
+        required: false,
+        repeatable: false,
+        defaultValue: null,
+        description: 'Engine id to measure text recall against (e.g. docling)',
+      ),
+    ],
+  );
 
   @override
   Map<String, dynamic> toJson() => {
@@ -53,10 +60,7 @@ class BenchOutput extends Output {
   BenchOutput({required this.report, required this.engineIds});
 
   @override
-  Map<String, dynamic> toJson() => {
-    'engines': engineIds,
-    ...report.toJson(),
-  };
+  Map<String, dynamic> toJson() => {'engines': engineIds, ...report.toJson()};
 
   @override
   int get exitCode => ExitCode.ok;
@@ -97,7 +101,7 @@ class BenchOutput extends Output {
   }
 }
 
-class BenchCommand implements Command<BenchInput, BenchOutput> {
+class BenchCommand implements Query<BenchInput, BenchOutput> {
   @override
   final BenchInput input;
   final Map<String, IngestionEngine> _engines;
@@ -123,21 +127,22 @@ class BenchCommand implements Command<BenchInput, BenchOutput> {
 
   @override
   Future<BenchOutput> execute() async {
-    final supported =
-        IngestionRegistry.defaults().supportedFormats;
-    final corpus = Directory(input.corpusPath)
-        .listSync()
-        .whereType<File>()
-        .where((file) => supported.contains(
-              p.extension(file.path).toLowerCase().replaceFirst('.', ''),
-            ))
-        .toList()
-      ..sort((a, b) => a.path.compareTo(b.path));
+    final supported = IngestionRegistry.defaults().supportedFormats;
+    final corpus =
+        Directory(input.corpusPath)
+            .listSync()
+            .whereType<File>()
+            .where(
+              (file) => supported.contains(
+                p.extension(file.path).toLowerCase().replaceFirst('.', ''),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
 
-    final report = await BenchmarkRunner(_engines).run(
-      corpus,
-      referenceEngine: input.referenceEngine,
-    );
+    final report = await BenchmarkRunner(
+      _engines,
+    ).run(corpus, referenceEngine: input.referenceEngine);
 
     return BenchOutput(report: report, engineIds: _engines.keys.toList());
   }

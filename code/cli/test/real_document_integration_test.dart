@@ -27,7 +27,9 @@ void main() {
         try {
           final cmd = ImportCommand(ImportInput(inputPath: fixtureCopy.path));
           final output = await cmd.execute();
-          final markdown = File(output.canonicalDocumentPath).readAsStringSync();
+          final markdown = File(
+            output.canonicalDocumentPath,
+          ).readAsStringSync();
           final manifest = File(output.manifestPath).readAsStringSync();
 
           expect(output.status, equals('converted'));
@@ -71,7 +73,7 @@ void main() {
 
         try {
           final exitCode = await runDocmd(
-            ['import', fixtureCopy.path, '--json'],
+            ['import', '--json', fixtureCopy.path],
             stdout: stdoutSink,
             stderr: stderrSink,
           );
@@ -129,9 +131,7 @@ void main() {
           expect(renderOutput.status, equals('rendered'));
           expect(File(renderOutput.outputPath).existsSync(), isTrue);
 
-          final reimportSource = File(
-            p.join(tempDir.path, 'roundtrip.docx'),
-          );
+          final reimportSource = File(p.join(tempDir.path, 'roundtrip.docx'));
           File(renderOutput.outputPath).copySync(reimportSource.path);
 
           final reimportOutput = await ImportCommand(
@@ -185,7 +185,12 @@ void main() {
 }
 
 File _copyFixtureToTemp(Directory tempDir) {
-  final fixturePath = p.join(Directory.current.path, 'test', 'fixtures', 'analisis.docx');
+  final fixturePath = p.join(
+    Directory.current.path,
+    'test',
+    'fixtures',
+    'analisis.docx',
+  );
   final targetPath = p.join(tempDir.path, 'analisis.docx');
   return File(fixturePath).copySync(targetPath);
 }

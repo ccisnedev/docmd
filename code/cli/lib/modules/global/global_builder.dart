@@ -1,44 +1,17 @@
 import 'package:modular_cli_sdk/modular_cli_sdk.dart';
 
-import 'commands/doctor.dart';
 import 'commands/tui.dart';
-import 'commands/uninstall.dart';
-import 'commands/upgrade.dart';
-import 'commands/version.dart';
 
+/// `version` and `doctor` are owned by `modular_cli_sdk`'s `VersionPlugin`
+/// and `DoctorPlugin`; `upgrade` and `uninstall` are owned by its
+/// `InstallationPlugin`. All three are registered in `docmd_cli.dart`. Only
+/// the bare `docmd` summary route remains docmd's own.
 void buildGlobalModule(ModuleBuilder m) {
-  m.command<TuiInput, TuiOutput>(
+  m.query<TuiInput, TuiOutput>(
     '',
     (req) => TuiCommand(TuiInput.fromCliRequest(req)),
+    globals: true,
+    contract: TuiInput.contract,
     description: 'Display DocMD summary and available workflows',
-    params: TuiInput.params,
-  );
-
-  m.command<VersionInput, VersionOutput>(
-    'version',
-    (req) => VersionCommand(VersionInput.fromCliRequest(req)),
-    description: 'Print the current DocMD CLI version',
-    params: VersionInput.params,
-  );
-
-  m.command<DoctorInput, DoctorOutput>(
-    'doctor',
-    (req) => DoctorCommand(DoctorInput.fromCliRequest(req)),
-    description: 'Verify local prerequisites such as Pandoc and LibreOffice',
-    params: DoctorInput.params,
-  );
-
-  m.command<UpgradeInput, UpgradeOutput>(
-    'upgrade',
-    (req) => UpgradeCommand(UpgradeInput.fromCliRequest(req)),
-    description: 'Download and install the latest DocMD release',
-    params: UpgradeInput.params,
-  );
-
-  m.command<UninstallInput, UninstallOutput>(
-    'uninstall',
-    (req) => UninstallCommand(UninstallInput.fromCliRequest(req)),
-    description: 'Remove the managed DocMD CLI installation from this machine',
-    params: UninstallInput.params,
   );
 }

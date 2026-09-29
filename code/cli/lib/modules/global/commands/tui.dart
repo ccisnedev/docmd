@@ -11,10 +11,7 @@ class TuiInput extends Input {
 
   factory TuiInput.fromCliRequest(CliRequest req) => TuiInput();
 
-  static const List<CliParam> params = [];
-
-  @override
-  List<CliParam> get schemaFields => params;
+  static const CliContract contract = CliContract.none;
 
   @override
   Map<String, dynamic> toJson() => {};
@@ -59,13 +56,15 @@ class TuiOutput extends Output {
     ];
     if (updateAvailable && latestVersion != null) {
       lines.add('');
-      lines.add('Update available: v$version → v$latestVersion — run `docmd upgrade`');
+      lines.add(
+        'Update available: v$version → v$latestVersion — run `docmd upgrade`',
+      );
     }
     return lines.join('\n');
   }
 }
 
-class TuiCommand implements Command<TuiInput, TuiOutput> {
+class TuiCommand implements Query<TuiInput, TuiOutput> {
   @override
   final TuiInput input;
 

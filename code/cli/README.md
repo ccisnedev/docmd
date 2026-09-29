@@ -31,9 +31,14 @@ docmd version
 docmd doctor
 docmd upgrade
 docmd uninstall
-docmd import <input>
-docmd render <input> [--pdf]
+docmd import [options] <input>
+docmd render [--pdf] <input>
 ```
 
+Options may come before or after the operand: `docmd render --pdf report.md`
+and `docmd render report.md --pdf` both parse. With `POSIXLY_CORRECT` set,
+`docmd` follows strict POSIX ordering and rejects an option after the operand.
+
 `docmd render` defaults to `.docx` output.
-`docmd doctor` also checks whether a newer CLI release is available.
+`docmd doctor` reports each local prerequisite (Pandoc, LibreOffice), each
+import and render capability, and whether a newer release is available.

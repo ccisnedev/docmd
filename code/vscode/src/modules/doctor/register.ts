@@ -4,6 +4,7 @@ import type { ExtensionServices } from '../../core/services';
 import { ensureDocmdCliAvailable, withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
 import { presentCommandError } from '../../shared/errors';
 import { getPreferredWorkingDirectory } from '../../shared/workspace';
+import { summarizeDoctorResult } from './summarizeDoctorResult';
 
 export function registerDoctorModule(
   context: vscode.ExtensionContext,
@@ -28,23 +29,13 @@ export function registerDoctorModule(
           return;
         }
 
-        const missing = Object.entries(result.checks)
-          .filter(([, passed]) => !passed)
-          .map(([name]) => name);
-        const updateMessage = result.updateAvailable && result.latestVersion
-          ? ` Update available: ${result.latestVersion}.`
-          : '';
-
-        if (missing.length == 0) {
-          await vscode.window.showInformationMessage(
-            `DocMD doctor completed: all checks passed.${updateMessage}`,
-          );
+        const summary = summarizeDoctorResult(result);
+        if (summary.level === 'warning') {
+          await vscode.window.showWarningMessage(summary.message);
           return;
         }
 
-        await vscode.window.showWarningMessage(
-          `DocMD doctor completed with missing tools: ${missing.join(', ')}.${updateMessage}`,
-        );
+        await vscode.window.showInformationMessage(summary.message);
       } catch (error) {
         await presentCommandError('DocMD doctor failed', error, services.logger);
       }

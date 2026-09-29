@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.2.4 — 2026-09-29
+
+### Changed
+
+- **`doctor` reports import and render capabilities again.** The move to
+  `modular_cli_sdk`'s `DoctorPlugin` had dropped the per-capability report
+  (`import md|docx|pdf|pptx|xlsx`, `render docx|pdf`). Each capability is now
+  its own doctor check: ok when available, a warning with the install hint
+  when a missing Pandoc or LibreOffice disables it, and ok but marked
+  unavailable for `import xlsx`, which has no engine wired yet.
+- **The VS Code extension reads both `doctor --json` shapes**: the current
+  array of checks and the `{name: bool}` map a CLI installed before this
+  release still prints, so an existing installation no longer makes the
+  doctor command fail.
+- **Upgraded `modular_cli_sdk` to ^0.8.1** (from ^0.8.0, itself bumped from
+  ^0.7.0 earlier in this cycle) **and `cli_router` to ^0.2.1** (from ^0.2.0).
+  `cli_router` 0.2.1 permutes an option that follows its operand by default
+  (`docmd import file.md --overwrite` now works); the previous strict
+  rejection (`misplaced-option`) only applies when `POSIXLY_CORRECT` is set
+  in the environment. `ModularCli.run` gained an optional `environment`
+  parameter for this, forwarded from docmd's own `runDocmd` entry point, so
+  a caller such as the VS Code extension can opt into strict ordering when
+  it needs to.
+- **Replaced docmd's own hand rolled `upgrade` and `uninstall` commands with
+  `modular_cli_sdk`'s `InstallationPlugin`** (its `alias` became optional in
+  0.8.1, which is what makes this possible for a CLI like docmd that has
+  never had one). Two small custom steps, wired through the plugin's own
+  `postUpgradeSteps`/`preUninstallSteps` extension points, keep the two
+  pieces of docmd specific behavior the plugin does not cover on its own:
+  recreating the `~/.local/bin/docmd` symlink on Linux after an upgrade (and
+  removing it on uninstall), and `chmod 755` on the freshly extracted
+  binary. docmd's own `PlatformOps` abstraction, and the import workaround
+  it required in `modules/global/commands/upgrade.dart`, are gone along with
+  it. See the pull request body's parity table for the small set of
+  observable differences this could not preserve without forcing behavior
+  the plugin was not built for: the old "not installed, skip the network
+  call" shortcut on upgrade, a new `release` check added to `docmd doctor`,
+  different error ids and exit codes for a few failure cases, and the
+  Windows uninstall's directory removal now going through the plugin's own
+  scheduled cleanup instead of docmd's own PowerShell script.
+- **`bench` and `setup` now accept the SDK's global options** (`--json`,
+  `--quiet`, `--help`), matching every other command. Both were registered
+  with `globals: false`, so passing `--json` to either was rejected as an
+  unknown option instead of being honored.
+
+### Fixed
+
+- **The render routing tests no longer depend on Pandoc or LibreOffice
+  being installed.** `test/vscode_extension_argument_order_test.dart`'s
+  "render docx" and "render --pdf" tests exercised real rendering against
+  an existing input, purely to check argument order; they now point at a
+  missing input instead, which reaches the same validation-failed error
+  before Pandoc or LibreOffice would ever be invoked. Actual conversion
+  stays covered by `real_document_integration_test.dart`, already guarded
+  on both tools being present.
+
 ## 0.2.3 — 2026-07-21
 
 ### Added

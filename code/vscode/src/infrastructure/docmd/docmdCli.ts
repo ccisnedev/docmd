@@ -2,8 +2,6 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 
-import * as vscode from 'vscode';
-
 import { DocmdCliNotFoundError } from './docmdErrors';
 import { getManagedDocmdBinaryPath } from './docmdInstaller';
 import type { OutputChannelLogger } from '../logging/outputChannelLogger';
@@ -48,11 +46,21 @@ export interface DocmdRenderResult {
   status: string;
 }
 
+export type DocmdDoctorCheckStatus = 'ok' | 'warning' | 'error';
+
+export interface DocmdDoctorCheck {
+  name: string;
+  status: DocmdDoctorCheckStatus;
+  detail?: string;
+}
+
 export interface DocmdDoctorResult {
-  checks: Record<string, boolean>;
-  currentVersion?: string;
-  latestVersion?: string;
-  updateAvailable?: boolean;
+  /**
+   * An array of per-check statuses, or, from a CLI installed before the
+   * modular_cli_sdk DoctorPlugin migration, a map of tool name to whether
+   * it was found.
+   */
+  checks: DocmdDoctorCheck[] | Record<string, boolean>;
 }
 
 export class DocmdCli {
@@ -62,14 +70,23 @@ export class DocmdCli {
   ) {}
 
   async doctor(options: DocmdRunOptions = {}): Promise<DocmdDoctorResult> {
-    return this.runJson<DocmdDoctorResult>(['doctor'], options);
+    try {
+      return await this.runJson<DocmdDoctorResult>(['doctor'], undefined, options);
+    } catch (error) {
+      const checks = extractDoctorChecksFromError(error);
+      if (checks) {
+        return { checks };
+      }
+
+      throw error;
+    }
   }
 
   async importFile(
     inputPath: string,
     options: DocmdImportOptions = {},
   ): Promise<DocmdImportResult> {
-    const args = ['import', inputPath];
+    const args = ['import'];
     if (options.outputDir) {
       args.push('--output-dir', options.outputDir);
     }
@@ -80,7 +97,7 @@ export class DocmdCli {
       args.push('--suffix');
     }
 
-    return this.runJson<DocmdImportResult>(args, options);
+    return this.runJson<DocmdImportResult>(args, inputPath, options);
   }
 
   async renderFile(
@@ -88,8 +105,8 @@ export class DocmdCli {
     format: 'docx' | 'pdf',
     options: DocmdRunOptions = {},
   ): Promise<DocmdRenderResult> {
-    const args = format === 'docx' ? ['render', inputPath] : ['render', inputPath, `--${format}`];
-    return this.runJson<DocmdRenderResult>(args, options);
+    const args = format === 'docx' ? ['render'] : ['render', `--${format}`];
+    return this.runJson<DocmdRenderResult>(args, inputPath, options);
   }
 
   async run(args: string[], options: DocmdRunOptions = {}): Promise<DocmdRunResult> {
@@ -225,8 +242,19 @@ export class DocmdCli {
     return candidate && existsSync(candidate) ? candidate : undefined;
   }
 
-  async runJson<T>(args: string[], options: DocmdRunOptions = {}): Promise<T> {
-    const result = await this.run([...args, '--json'], options);
+  /**
+   * Runs `args` (route words and options only, no operand) plus `--json`,
+   * with `operand` appended last. cli_router 0.2.0 requires strict POSIX
+   * ordering: route words, then options, then operands, so `--json` must
+   * come before `operand`, never after it.
+   */
+  async runJson<T>(
+    args: string[],
+    operand: string | undefined,
+    options: DocmdRunOptions = {},
+  ): Promise<T> {
+    const fullArgs = operand === undefined ? [...args, '--json'] : [...args, '--json', operand];
+    const result = await this.run(fullArgs, options);
 
     try {
       return JSON.parse(result.stdout) as T;
@@ -237,6 +265,25 @@ export class DocmdCli {
   }
 }
 
+function extractDoctorChecksFromError(error: unknown): DocmdDoctorCheck[] | undefined {
+  if (!(error instanceof Error)) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(error.message);
+  } catch {
+    return undefined;
+  }
+
+  const envelope = parsed as { error?: { checks?: unknown } } | undefined;
+  const checks = envelope?.error?.checks;
+  return Array.isArray(checks) ? (checks as DocmdDoctorCheck[]) : undefined;
+}
+
 function getWorkspaceRoot(): string | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const vscode = require('vscode');
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }

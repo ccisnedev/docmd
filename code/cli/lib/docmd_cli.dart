@@ -16,6 +16,7 @@ Future<int> runDocmd(
   List<String> args, {
   io.IOSink? stdout,
   io.IOSink? stderr,
+  Map<String, String>? environment,
 }) async {
   final cli =
       ModularCli(suggestionDistance: 2, name: 'docmd', version: docmdVersion)
@@ -29,5 +30,10 @@ Future<int> runDocmd(
   cli.module('bench', (m) => buildBenchmarkModule(m));
   cli.module('setup', (m) => buildSetupModule(m));
 
-  return cli.run(args, stdout: stdout, stderr: stderr);
+  return cli.run(
+    args,
+    stdout: stdout,
+    stderr: stderr,
+    environment: environment,
+  );
 }

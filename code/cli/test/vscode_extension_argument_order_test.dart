@@ -9,8 +9,9 @@ import 'package:docmd_cli/docmd_cli.dart';
 /// Runs [args] through the real [runDocmd] entry point and captures both
 /// streams, exactly as the VS Code extension's `DocmdCli.run` does.
 Future<({int exitCode, String stdout, String stderr})> _run(
-  List<String> args,
-) async {
+  List<String> args, {
+  Map<String, String>? environment,
+}) async {
   final stdoutController = StreamController<List<int>>();
   final stderrController = StreamController<List<int>>();
   final stdoutBytes = <int>[];
@@ -27,6 +28,7 @@ Future<({int exitCode, String stdout, String stderr})> _run(
       args,
       stdout: stdoutSink,
       stderr: stderrSink,
+      environment: environment,
     );
 
     await stdoutSink.flush();
@@ -102,7 +104,9 @@ void main() {
     );
 
     test(
-      'import with the old order (operand before options) is rejected as misplaced-option',
+      'import with the old order (operand before options) is accepted by '
+      'default: cli_router 0.2.1 permutes options after an operand unless '
+      'POSIXLY_CORRECT is set',
       () async {
         final sourceFile = File('${dir.path}/sample.md')
           ..writeAsStringSync('# Sample');
@@ -113,6 +117,25 @@ void main() {
           '--overwrite',
           '--json',
         ]);
+
+        expect(result.exitCode, equals(0));
+        expect(_decode(result.stdout)['status'], equals('copied'));
+      },
+    );
+
+    test(
+      'import with the old order (operand before options) is rejected as '
+      'misplaced-option in strict mode (POSIXLY_CORRECT)',
+      () async {
+        final sourceFile = File('${dir.path}/sample.md')
+          ..writeAsStringSync('# Sample');
+
+        final result = await _run([
+          'import',
+          sourceFile.path,
+          '--overwrite',
+          '--json',
+        ], environment: const {'POSIXLY_CORRECT': '1'});
 
         expect(result.exitCode, isNot(equals(0)));
         expect(result.stderr, contains('[misplaced-option]'));
@@ -161,7 +184,27 @@ void main() {
     );
 
     test(
-      'render with the old order (operand before --pdf) is rejected as misplaced-option',
+      'render with the old order (operand before --pdf) is accepted by '
+      'default: cli_router 0.2.1 permutes an option after its operand '
+      'unless POSIXLY_CORRECT is set',
+      () async {
+        final missingFile = '${dir.path}/missing.md';
+
+        final result = await _run(['render', missingFile, '--pdf', '--json']);
+
+        // Same routing question as the "options first" cases above: the
+        // permuted invocation is dispatched, not rejected, and reaches the
+        // same missing-input validation error.
+        expect(result.stderr, isNot(contains('[misplaced-option]')));
+        final error = _decode(result.stderr)['error'] as Map<String, dynamic>;
+        expect(error['id'], equals('validation-failed'));
+        expect(result.exitCode, equals(7));
+      },
+    );
+
+    test(
+      'render with the old order (operand before --pdf) is rejected as '
+      'misplaced-option in strict mode (POSIXLY_CORRECT)',
       () async {
         final sourceFile = File('${dir.path}/sample.md')
           ..writeAsStringSync('# Sample');
@@ -171,7 +214,7 @@ void main() {
           sourceFile.path,
           '--pdf',
           '--json',
-        ]);
+        ], environment: const {'POSIXLY_CORRECT': '1'});
 
         expect(result.exitCode, isNot(equals(0)));
         expect(result.stderr, contains('[misplaced-option]'));

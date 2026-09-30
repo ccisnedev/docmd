@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.5 — 2026-09-29
+
+### Fixed
+
+- **Upgraded `modular_cli_sdk` to ^0.8.3** (from ^0.8.1). 0.8.3 fixes
+  `HttpCliReleaseSource` never closing its `http.Client`, which kept
+  `doctor`, `upgrade` and `uninstall` alive for the `HttpClient` idle
+  timeout (~15s) after they had already printed their result (~1s)
+  (modular_cli_sdk#44). 0.8.2, picked up in the same bump, also fixed a
+  Linux `uninstall` race in `InstallationPlugin` (modular_cli_sdk#40). No
+  docmd code changes were needed for either release.
+
 ## 0.2.4 — 2026-09-29
 
 ### Changed

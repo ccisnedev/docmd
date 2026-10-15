@@ -17,14 +17,32 @@ class RenderInput extends Input {
   RenderInput({required this.inputPath, required this.format});
 
   factory RenderInput.fromCliRequest(CliRequest req) {
+    final inputPath = req.param('input') ?? '';
+    final requested = req.flagBool('pdf')
+        ? 'pdf'
+        : req.flagBool('pptx')
+            ? 'pptx'
+            : req.flagBool('docx')
+                ? 'docx'
+                : null;
+
     return RenderInput(
-      inputPath: req.param('input') ?? '',
-      format: req.flagBool('pdf')
-          ? 'pdf'
-          : req.flagBool('pptx')
-          ? 'pptx'
-          : 'docx',
+      inputPath: inputPath,
+      format: formatFor(inputPath, requested: requested),
     );
+  }
+
+  /// A deck renders back to a deck. Defaulting every package to docx turned
+  /// `render` on an imported `.pptx` into a silent format change, and the
+  /// extension had no way to ask for pptx at all. An explicit flag still wins.
+  static String formatFor(String inputPath, {String? requested}) {
+    if (requested != null) {
+      return requested;
+    }
+    if (!isDocmdPackagePath(inputPath)) {
+      return 'docx';
+    }
+    return _formatForKind[DocmdPackageLayout(inputPath).kind] ?? 'docx';
   }
 
   // docx and pptx are native pandoc writers; pdf is pandoc→LibreOffice. No
@@ -50,6 +68,12 @@ class RenderInput extends Input {
         abbr: null,
         repeatable: false,
         description: 'Render to PPTX',
+      ),
+      CliParam.flag(
+        'docx',
+        abbr: null,
+        repeatable: false,
+        description: 'Render to DOCX (the default, except for deck packages)',
       ),
     ],
   );
@@ -280,3 +304,7 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
 }
 
 const Set<String> _supportedFormats = {'docx', 'pptx', 'pdf'};
+
+/// Package kind -> the format it renders back to by default. `sheet` is absent
+/// because pandoc has no xlsx writer; it falls through to docx.
+const Map<String?, String> _formatForKind = {'deck': 'pptx', 'document': 'docx'};

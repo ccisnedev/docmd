@@ -18,8 +18,9 @@ import 'ingestion_backend.dart';
 /// output references pictures by shape name (`Imagen4.jpg`) rather than by media
 /// part, so its image links cannot be resolved to files and point at nothing.
 ///
-/// Each slide becomes a `## Slide N` section holding that slide's text and
-/// images in the order they appear on the slide.
+/// Each slide becomes a `## Slide N` section — titled when the slide has a title
+/// — holding that slide's text and images in **reading order** (see
+/// [_blocksIn]).
 class PptxIngestionBackend implements IngestionBackend {
   @override
   String get engineId => 'docmd';
@@ -42,6 +43,7 @@ class PptxIngestionBackend implements IngestionBackend {
   }) async {
     final archive = _openArchive(source);
     final slideParts = _slidePartsInPresentationOrder(archive);
+    final bandHeight = _readingBandHeight(archive);
 
     final buffer = StringBuffer();
     final extractedMedia = <String>{};
@@ -49,11 +51,17 @@ class PptxIngestionBackend implements IngestionBackend {
 
     for (var index = 0; index < slideParts.length; index++) {
       final slidePart = slideParts[index];
-      buffer.writeln('## Slide ${index + 1}');
+      final relationships = _imageRelationships(archive, slidePart);
+      final slide = _readSlide(archive, slidePart, relationships, bandHeight);
+
+      buffer.writeln(
+        slide.title == null
+            ? '## Slide ${index + 1}'
+            : '## Slide ${index + 1} · ${slide.title}',
+      );
       buffer.writeln();
 
-      final relationships = _imageRelationships(archive, slidePart);
-      for (final block in _slideBlocks(archive, slidePart, relationships)) {
+      for (final block in slide.blocks) {
         switch (block) {
           case _TextBlock(:final text):
             buffer.writeln(text);
@@ -126,6 +134,26 @@ class PptxIngestionBackend implements IngestionBackend {
     return parts;
   }
 
+  /// Height of one horizontal reading band, in EMU: shapes whose tops fall in the
+  /// same band count as one visual row and are read left to right.
+  ///
+  /// A twentieth of the slide height is calibrated, not guessed. On the deck that
+  /// motivated this, a bullet and its `01.` numeral sit 140 746 EMU apart on a
+  /// 6 858 000 EMU slide: a band of `cy / 40` splits them into separate rows and
+  /// puts the numeral after its own bullet, while `cy / 20` keeps the pair in one
+  /// row so the numeral leads, as printed. The same value keeps a row of six
+  /// side-by-side process boxes in left-to-right order rather than interleaving
+  /// them with the rows above and below.
+  double _readingBandHeight(Archive archive) {
+    const defaultSlideHeight = 6858000; // 16:9 at 96 dpi, the PowerPoint default.
+    final presentation = _parseXml(archive, 'ppt/presentation.xml');
+    final size = presentation
+        ?.findAllElements('sldSz', namespace: '*')
+        .firstOrNull;
+    final height = int.tryParse(size?.getAttribute('cy') ?? '') ?? defaultSlideHeight;
+    return (height <= 0 ? defaultSlideHeight : height) / 20;
+  }
+
   /// Relationship id -> media part name, for the image relationships of a slide.
   Map<String, String> _imageRelationships(Archive archive, String slidePart) {
     final relsPath = p.url.join(
@@ -155,47 +183,207 @@ class PptxIngestionBackend implements IngestionBackend {
     return targets;
   }
 
-  /// Walks the slide's shape tree in document order, yielding the text and the
-  /// pictures as they are laid out. Recurses into group shapes, whose children
-  /// are ordinary shapes one level down.
-  Iterable<_Block> _slideBlocks(
+  _Slide _readSlide(
     Archive archive,
     String slidePart,
     Map<String, String> imageRelationships,
-  ) sync* {
+    double bandHeight,
+  ) {
     final slide = _parseXml(archive, slidePart);
-    if (slide == null) {
-      return;
-    }
-
-    final shapeTree = slide.findAllElements('spTree', namespace: '*').firstOrNull;
+    final shapeTree = slide
+        ?.findAllElements('spTree', namespace: '*')
+        .firstOrNull;
     if (shapeTree == null) {
-      return;
+      return const _Slide(null, []);
     }
 
-    yield* _blocksIn(shapeTree, imageRelationships);
+    final blocks = _blocksIn(shapeTree, imageRelationships, bandHeight).toList();
+    return _titledSlide(shapeTree, blocks);
   }
 
+  /// Splits the slide title off the body.
+  ///
+  /// The layout placeholder is authoritative when present. Plenty of real decks
+  /// have none — every slide of the deck this was built against is free-floating
+  /// text boxes with no placeholder at all — so the fallback is the first text in
+  /// reading order, which is where a title sits by construction. The length guard
+  /// keeps a paragraph of body copy on a title-less slide from being promoted
+  /// into the heading.
+  _Slide _titledSlide(XmlElement shapeTree, List<_Block> blocks) {
+    final title = _placeholderTitle(shapeTree) ?? _heuristicTitle(blocks);
+    if (title == null) {
+      return _Slide(null, blocks);
+    }
+
+    // The title shape is still in the body — the placeholder is not necessarily
+    // the first shape in reading order, so it is matched rather than assumed.
+    // Leaving it would print the title twice, as heading and as body text.
+    final body = [...blocks];
+    final titleIndex = body.indexWhere(
+      (block) => block is _TextBlock && _asHeading(block.text) == title,
+    );
+    if (titleIndex >= 0) {
+      body.removeAt(titleIndex);
+    }
+    return _Slide(title, body);
+  }
+
+  /// The first *text* in reading order, which is where a title sits by
+  /// construction. Leading images are skipped rather than disqualifying the
+  /// slide: a picture is never a title, and on the motivating deck two slides
+  /// open with a decorative image that sorts above the heading. The length guard
+  /// is what keeps body copy from being promoted on a slide that has no title.
+  String? _heuristicTitle(List<_Block> blocks) {
+    for (final block in blocks) {
+      if (block is _ImageBlock) {
+        continue;
+      }
+      if (block is _TextBlock && block.text.length <= _maxHeuristicTitleLength) {
+        return _asHeading(block.text);
+      }
+      return null;
+    }
+    return null;
+  }
+
+  String? _placeholderTitle(XmlElement shapeTree) {
+    for (final shape in shapeTree.findAllElements('sp', namespace: '*')) {
+      final placeholder = shape
+          .findAllElements('ph', namespace: '*')
+          .firstOrNull;
+      final type = placeholder?.getAttribute('type');
+      if (type == 'title' || type == 'ctrTitle') {
+        final text = _shapeText(shape);
+        if (text.isNotEmpty) {
+          return _asHeading(text);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// A title box may hold several paragraphs ("APP Santa Isabel" / "(App de la
+  /// Socia)"); a heading is one line.
+  String _asHeading(String text) =>
+      text.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).join(' ');
+
+  /// Walks a shape tree in **reading order**, yielding text and pictures as they
+  /// are laid out. Recurses into group shapes, whose children are ordinary shapes
+  /// one level down.
+  ///
+  /// Document order is z-order — the order shapes were created, which PowerPoint
+  /// never rewrites — so it does not survive any editing. On the motivating deck
+  /// it detached all four `01.`–`04.` numerals from their bullets and left them
+  /// in a clump at the end of the slide. Sorting siblings by position restores
+  /// what the slide actually reads like.
+  ///
+  /// Shapes with no `<a:off>` inherit the previous positioned sibling's spot
+  /// (leading ones default to the origin), and the document index breaks ties, so
+  /// a slide that carries no geometry at all comes out in document order exactly
+  /// as before.
   Iterable<_Block> _blocksIn(
     XmlElement parent,
     Map<String, String> imageRelationships,
+    double bandHeight,
   ) sync* {
-    for (final element in parent.childElements) {
-      switch (element.name.local) {
+    final ordered = _childShapesInReadingOrder(parent, bandHeight);
+
+    for (final shape in ordered) {
+      switch (shape.name.local) {
         case 'sp':
-          final text = _shapeText(element);
+          final text = _shapeText(shape);
           if (text.isNotEmpty) {
             yield _TextBlock(text);
           }
         case 'pic':
-          final mediaName = _pictureMedia(element, imageRelationships);
+          final mediaName = _pictureMedia(shape, imageRelationships);
           if (mediaName != null) {
             yield _ImageBlock(mediaName);
           }
         case 'grpSp':
-          yield* _blocksIn(element, imageRelationships);
+          yield* _blocksIn(
+            shape,
+            imageRelationships,
+            _childBandHeight(shape, bandHeight),
+          );
       }
     }
+  }
+
+  List<XmlElement> _childShapesInReadingOrder(
+    XmlElement parent,
+    double bandHeight,
+  ) {
+    final keyed = <_PositionedShape>[];
+    var lastX = 0;
+    var lastY = 0;
+
+    for (final element in parent.childElements) {
+      if (!_shapeTags.contains(element.name.local)) {
+        continue;
+      }
+      final offset = _offsetOf(element);
+      if (offset != null) {
+        lastX = offset.$1;
+        lastY = offset.$2;
+      }
+      keyed.add(
+        _PositionedShape(
+          element: element,
+          band: (lastY / bandHeight).floor(),
+          x: lastX,
+          documentIndex: keyed.length,
+        ),
+      );
+    }
+
+    // Dart's sort is not stable, so the document index is part of the ordering
+    // rather than left to the algorithm.
+    keyed.sort((a, b) {
+      final byBand = a.band.compareTo(b.band);
+      if (byBand != 0) return byBand;
+      final byX = a.x.compareTo(b.x);
+      if (byX != 0) return byX;
+      return a.documentIndex.compareTo(b.documentIndex);
+    });
+
+    return [for (final shape in keyed) shape.element];
+  }
+
+  /// A group's children are expressed in its own child coordinate space, so the
+  /// band has to be rescaled by the child-to-parent ratio or a tall group would
+  /// collapse its rows into one and a short one would split every row.
+  double _childBandHeight(XmlElement group, double bandHeight) {
+    final transform = _transformOf(group);
+    final extent = transform?.findElements('ext', namespace: _drawingmlNs).firstOrNull;
+    final childExtent =
+        transform?.findElements('chExt', namespace: _drawingmlNs).firstOrNull;
+
+    final height = int.tryParse(extent?.getAttribute('cy') ?? '');
+    final childHeight = int.tryParse(childExtent?.getAttribute('cy') ?? '');
+    if (height == null || childHeight == null || height <= 0) {
+      return bandHeight;
+    }
+    return bandHeight * childHeight / height;
+  }
+
+  (int, int)? _offsetOf(XmlElement shape) {
+    final offset = _transformOf(
+      shape,
+    )?.findElements('off', namespace: _drawingmlNs).firstOrNull;
+    final x = int.tryParse(offset?.getAttribute('x') ?? '');
+    final y = int.tryParse(offset?.getAttribute('y') ?? '');
+    return (x == null || y == null) ? null : (x, y);
+  }
+
+  /// The shape's own `<a:xfrm>`, reached through its direct properties element —
+  /// `p:spPr` for shapes and pictures, `p:grpSpPr` for groups. Searching the
+  /// subtree instead would let a group pick up a child's transform.
+  XmlElement? _transformOf(XmlElement shape) {
+    final properties = shape.childElements
+        .where((child) => _shapePropertyTags.contains(child.name.local))
+        .firstOrNull;
+    return properties?.findElements('xfrm', namespace: _drawingmlNs).firstOrNull;
   }
 
   /// One Markdown line per `<a:p>`, joining that paragraph's runs.
@@ -274,6 +462,34 @@ class PptxIngestionBackend implements IngestionBackend {
 }
 
 const String _drawingmlNs = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+
+const Set<String> _shapeTags = {'sp', 'pic', 'grpSp'};
+
+const Set<String> _shapePropertyTags = {'spPr', 'grpSpPr'};
+
+/// Long enough for a wrapped headline, short enough that a paragraph of body copy
+/// is never mistaken for a title.
+const int _maxHeuristicTitleLength = 120;
+
+class _Slide {
+  final String? title;
+  final List<_Block> blocks;
+  const _Slide(this.title, this.blocks);
+}
+
+class _PositionedShape {
+  final XmlElement element;
+  final int band;
+  final int x;
+  final int documentIndex;
+
+  const _PositionedShape({
+    required this.element,
+    required this.band,
+    required this.x,
+    required this.documentIndex,
+  });
+}
 
 sealed class _Block {
   const _Block();

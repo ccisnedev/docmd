@@ -38,6 +38,9 @@ export interface DocmdImportOptions extends DocmdRunOptions {
   suffix?: boolean;
 }
 
+/** The formats `docmd render` can write. Mirrors the CLI's supported set. */
+export type DocmdRenderFormat = 'docx' | 'pptx' | 'pdf';
+
 export interface DocmdRenderResult {
   inputPath: string;
   sourceMarkdownPath: string;
@@ -102,10 +105,13 @@ export class DocmdCli {
 
   async renderFile(
     inputPath: string,
-    format: 'docx' | 'pdf',
+    format: DocmdRenderFormat,
     options: DocmdRunOptions = {},
   ): Promise<DocmdRenderResult> {
-    const args = format === 'docx' ? ['render'] : ['render', `--${format}`];
+    // Always explicit. The CLI's default format now depends on the package kind
+    // (a deck renders to pptx), so omitting the flag would silently ignore what
+    // the user picked.
+    const args = ['render', `--${format}`];
     return this.runJson<DocmdRenderResult>(args, inputPath, options);
   }
 

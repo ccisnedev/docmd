@@ -98,7 +98,7 @@ test('importFile with no options only appends --json before the operand', async 
   assert.deepEqual(calls[0].args, ['import', '--json', 'a.md']);
 });
 
-test('renderFile for docx places --json before the operand', async (t) => {
+test('renderFile for docx passes --docx explicitly, before --json and the operand', async (t) => {
   const calls = stubSpawn(t, {
     stdout: JSON.stringify({
       inputPath: 'a.md',
@@ -112,7 +112,7 @@ test('renderFile for docx places --json before the operand', async (t) => {
   const cli = new DocmdCli(fakeLogger());
   await cli.renderFile('a.md', 'docx', { cwd: '/work' });
 
-  assert.deepEqual(calls[0].args, ['render', '--json', 'a.md']);
+  assert.deepEqual(calls[0].args, ['render', '--docx', '--json', 'a.md']);
 });
 
 test('renderFile for pdf places --pdf and --json before the operand', async (t) => {

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import type { ExtensionServices } from '../../core/services';
+import type { DocmdRenderFormat } from '../../infrastructure/docmd/docmdCli';
 import { ensureDocmdCliAvailable, withDocmdCli } from '../../infrastructure/docmd/docmdCommandGuard';
 import { presentCommandError } from '../../shared/errors';
 import { getPreferredWorkingDirectory } from '../../shared/workspace';
@@ -20,11 +21,11 @@ export function registerRenderModule(
         return;
       }
 
-      const formats = ['docx', 'pdf'] as const;
+      const formats = ['docx', 'pptx', 'pdf'] as const;
       const selectedFormat = await vscode.window.showQuickPick(formats, {
         placeHolder: 'Choose the output format',
       });
-      const format = selectedFormat as 'docx' | 'pdf' | undefined;
+      const format = selectedFormat as DocmdRenderFormat | undefined;
 
       if (!format) {
         return;

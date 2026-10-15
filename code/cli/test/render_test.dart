@@ -5,7 +5,75 @@ import 'package:test/test.dart';
 
 import 'package:docmd_cli/modules/render/commands/render_file.dart';
 
+Directory _package(Directory parent, String name, String kind) {
+  final packageDir = Directory(p.join(parent.path, '$name.docmd'))..createSync();
+  Directory(p.join(packageDir.path, 'content')).createSync(recursive: true);
+  File(p.join(packageDir.path, 'manifest.yaml')).writeAsStringSync(
+    'kind: $kind\nversion: 0.0.1\ncanonical:\n  entry: content/document.md\n',
+  );
+  File(p.join(packageDir.path, 'content', 'document.md'))
+      .writeAsStringSync('## Slide 1 · Title');
+  return packageDir;
+}
+
 void main() {
+  // Defaulting every package to docx turned `render` on an imported deck into a
+  // silent format change, and left the VS Code extension with no way to ask for
+  // pptx at all.
+  group('RenderInput default format', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('docmd_render_kind_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    test('a deck package renders back to pptx', () {
+      final packageDir = _package(dir, 'deck', 'deck');
+      expect(
+        RenderInput.formatFor(packageDir.path),
+        equals('pptx'),
+      );
+    });
+
+    test('a document package still renders to docx', () {
+      final packageDir = _package(dir, 'requirement', 'document');
+      expect(
+        RenderInput.formatFor(packageDir.path),
+        equals('docx'),
+      );
+    });
+
+    // No manifest to consult, so the historical default stands.
+    test('a bare markdown file still renders to docx', () {
+      final file = File(p.join(dir.path, 'draft.md'))..writeAsStringSync('# Draft');
+      expect(
+        RenderInput.formatFor(file.path),
+        equals('docx'),
+      );
+    });
+
+    test('an explicit flag overrides the kind', () {
+      final packageDir = _package(dir, 'deck', 'deck');
+      expect(
+        RenderInput.formatFor(packageDir.path, requested: 'docx'),
+        equals('docx'),
+      );
+      expect(
+        RenderInput.formatFor(packageDir.path, requested: 'pdf'),
+        equals('pdf'),
+      );
+    });
+
+    // A kind with no renderer must not become an unsupported format that
+    // validate() then rejects; it falls back to docx.
+    test('a sheet package falls back to docx', () {
+      final packageDir = _package(dir, 'book', 'sheet');
+      expect(
+        RenderInput.formatFor(packageDir.path),
+        equals('docx'),
+      );
+    });
+  });
+
   group('Render Command', () {
     test('validate() returns error when input is missing', () {
       final cmd = RenderCommand(RenderInput(inputPath: '', format: 'docx'));

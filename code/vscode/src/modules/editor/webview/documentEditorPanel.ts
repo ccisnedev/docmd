@@ -8,14 +8,32 @@ import { presentCommandError } from '../../../shared/errors';
 import { resolveRenderInputPath } from '../../../shared/workspace';
 import { markdownFromDocumentHtml, renderMarkdownDocument } from '../documentCodec';
 
+type ExportFormat = 'docx' | 'pptx' | 'pdf';
+
 type EditorMessage =
   | { type: 'ready' }
   | { type: 'save'; documentHtml: string }
   | { type: 'openRaw' }
-  | { type: 'export'; format: 'docx' | 'pdf'; documentHtml: string };
+  | { type: 'export'; format: ExportFormat; documentHtml: string };
+
+/**
+ * The package directory that owns a canonical document, which is the root the
+ * webview is allowed to load assets from. A canonical document lives at
+ * `<package>/content/document.md`, so its media sits one level above it.
+ */
+function resolvePackageRoot(canonicalDocumentPath: string): string {
+  const contentDir = path.dirname(canonicalDocumentPath);
+  return path.basename(contentDir) === 'content' ? path.dirname(contentDir) : contentDir;
+}
 
 export class DocumentEditorPanel {
   private static readonly panels = new Map<string, DocumentEditorPanel>();
+
+  /**
+   * Display URI -> the package-relative path it was built from, so saving can
+   * put the canonical path back even if the attribute carrying it is lost.
+   */
+  private readonly displaySources = new Map<string, string>();
 
   static async createOrShow(
     context: vscode.ExtensionContext,
@@ -36,6 +54,9 @@ export class DocumentEditorPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
+        // Without this the webview may not read the package's extracted media,
+        // and every imported image renders as a broken link.
+        localResourceRoots: [vscode.Uri.file(resolvePackageRoot(canonicalDocumentPath))],
       },
     );
 
@@ -62,7 +83,27 @@ export class DocumentEditorPanel {
 
   async refresh(): Promise<void> {
     const markdown = await this.readMarkdown();
-    this.panel.webview.html = this.getHtml(renderMarkdownDocument(markdown));
+    this.displaySources.clear();
+
+    const documentHtml = renderMarkdownDocument(markdown, {
+      resolveSrc: (src) => this.toDisplayUri(src),
+    });
+    this.panel.webview.html = this.getHtml(documentHtml);
+  }
+
+  /**
+   * A relative image path means nothing under the webview's own origin, so it is
+   * resolved against the document and handed over as a webview URI. The mapping
+   * is remembered so {@link saveDocumentHtml} can reverse it.
+   */
+  private toDisplayUri(src: string): string {
+    const absolutePath = path.resolve(path.dirname(this.canonicalDocumentPath), src);
+    const displayUri = this.panel.webview
+      .asWebviewUri(vscode.Uri.file(absolutePath))
+      .toString();
+
+    this.displaySources.set(displayUri, src);
+    return displayUri;
   }
 
   private async handleMessage(message: EditorMessage): Promise<void> {
@@ -89,7 +130,7 @@ export class DocumentEditorPanel {
     }
   }
 
-  private async exportDocument(format: 'docx' | 'pdf'): Promise<void> {
+  private async exportDocument(format: ExportFormat): Promise<void> {
     try {
       const renderInput = resolveRenderInputPath(this.canonicalDocumentPath);
       const result = await withDocmdCli(
@@ -128,7 +169,14 @@ export class DocumentEditorPanel {
   }
 
   private async saveDocumentHtml(documentHtml: string): Promise<void> {
-    await this.saveMarkdown(markdownFromDocumentHtml(documentHtml));
+    // Reversing the display rewrite is not optional: a webview URI written into
+    // content/document.md points at a location that exists only inside one
+    // session, so the package would stop rendering its own images.
+    await this.saveMarkdown(
+      markdownFromDocumentHtml(documentHtml, {
+        restoreSrc: (src) => this.displaySources.get(src) ?? src,
+      }),
+    );
   }
 
   private getHtml(documentHtml: string): string {
@@ -139,7 +187,7 @@ export class DocumentEditorPanel {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel.webview.cspSource} data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DocMD Editor</title>
   <style>
@@ -360,6 +408,15 @@ export class DocumentEditorPanel {
       text-decoration: underline;
     }
 
+    /* Imported media is at its original resolution — slide screenshots run far
+       wider than the page. */
+    .document-surface img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto 1em;
+    }
+
     .document-surface [data-placeholder]:empty::before {
       content: attr(data-placeholder);
       color: #94a3b8;
@@ -394,6 +451,7 @@ export class DocumentEditorPanel {
     <div class="toolbar-meta">The app chrome follows your VS Code theme. Only the page stays white, like a document sheet.</div>
     <button id="openRaw">Open Raw</button>
     <button id="exportDocx">Export DOCX</button>
+    <button id="exportPptx">Export PPTX</button>
     <button id="exportPdf">Export PDF</button>
     <button id="save" class="primary">Save</button>
   </div>
@@ -428,13 +486,15 @@ export class DocumentEditorPanel {
       vscode.postMessage({ type: 'openRaw' });
     });
 
-    document.getElementById('exportDocx').addEventListener('click', () => {
-      vscode.postMessage({ type: 'export', format: 'docx', documentHtml: currentDocumentHtml() });
-    });
-
-    document.getElementById('exportPdf').addEventListener('click', () => {
-      vscode.postMessage({ type: 'export', format: 'pdf', documentHtml: currentDocumentHtml() });
-    });
+    for (const [id, format] of [
+      ['exportDocx', 'docx'],
+      ['exportPptx', 'pptx'],
+      ['exportPdf', 'pdf'],
+    ]) {
+      document.getElementById(id).addEventListener('click', () => {
+        vscode.postMessage({ type: 'export', format, documentHtml: currentDocumentHtml() });
+      });
+    }
 
     window.addEventListener('keydown', (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {

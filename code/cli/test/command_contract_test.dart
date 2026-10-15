@@ -109,6 +109,14 @@ void main() {
       expect(err, isNot(contains('unknown option')));
     });
 
+    // --docx is how a deck package asks for the old default back.
+    test('render --docx reaches validation, not flag rejection', () async {
+      final (code, err) = await _run(['render', '--docx', missing]);
+      expect(code, 7);
+      expect(err, contains('not found'));
+      expect(err, isNot(contains('unknown option')));
+    });
+
     test('import --output-dir/--overwrite/--suffix reach validation', () async {
       final outDir = p.join(tempDir.path, 'out');
       final (code, err) = await _run([

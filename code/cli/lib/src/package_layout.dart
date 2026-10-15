@@ -41,6 +41,24 @@ class DocmdPackageLayout {
 
   String get packageName => p.basenameWithoutExtension(rootPath);
 
+  /// The `kind:` recorded in the manifest (`document`, `deck`, `sheet`), or null
+  /// when there is no readable manifest. Read line-wise rather than through a
+  /// YAML parser because [writeManifest] emits it as a flat top-level key, and
+  /// the CLI stays dependency-free for it.
+  String? get kind {
+    final manifest = File(manifestPath);
+    if (!manifest.existsSync()) {
+      return null;
+    }
+    for (final line in manifest.readAsLinesSync()) {
+      final match = _kindPattern.firstMatch(line);
+      if (match != null) {
+        return match.group(1);
+      }
+    }
+    return null;
+  }
+
   bool get exists => Directory(rootPath).existsSync();
 
   bool get isPackage => File(manifestPath).existsSync();
@@ -95,6 +113,8 @@ class DocmdPackageLayout {
     ].join('\n');
   }
 }
+
+final RegExp _kindPattern = RegExp(r'^kind:\s*(\S+)\s*$');
 
 bool isDocmdPackagePath(String inputPath) {
   return Directory(inputPath).existsSync() &&

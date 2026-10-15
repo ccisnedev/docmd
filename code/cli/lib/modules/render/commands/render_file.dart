@@ -346,7 +346,13 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
     final frontMatter = FrontMatter.parse(
       File(markdownSource).readAsStringSync(),
     );
-    return [if (frontMatter.flag('number-sections')) '--number-sections'];
+    return [
+      if (frontMatter.flag('number-sections')) '--number-sections',
+      // Without citeproc, citations stay raw (@key) and the bibliography is
+      // empty. The bibliography file is found through --resource-path.
+      if (frontMatter.has('bibliography') || frontMatter.has('references'))
+        '--citeproc',
+    ];
   }
 
   String _resourcePathFor(String markdownSource) {

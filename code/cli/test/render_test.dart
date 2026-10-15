@@ -286,10 +286,24 @@ void main() {
       expect(await pandocArgs(md, 'pdf'), contains('--number-sections'));
     });
 
+    // Citations stayed raw (@key) and the bibliography empty: citeproc never ran.
+    test('a bibliography runs citeproc for docx and pdf', () async {
+      const md = '---\nbibliography: refs.bib\n---\n\nText [@k].\n';
+      expect(await pandocArgs(md, 'docx'), contains('--citeproc'));
+      expect(await pandocArgs(md, 'pdf'), contains('--citeproc'));
+    });
+
+    test('inline references run citeproc too', () async {
+      const md = '---\nreferences:\n- id: k\n  title: T\n---\n\n[@k]\n';
+      expect(await pandocArgs(md, 'docx'), contains('--citeproc'));
+    });
+
     test('headings stay unnumbered without it', () async {
       const md = '---\ntitle: x\n---\n\n# One\n';
       expect(await pandocArgs(md, 'docx'), isNot(contains('--number-sections')));
       expect(await pandocArgs('# One\n', 'pdf'), isNot(contains('--number-sections')));
+      // Nor does citeproc run without a bibliography.
+      expect(await pandocArgs(md, 'docx'), isNot(contains('--citeproc')));
     });
   });
 }

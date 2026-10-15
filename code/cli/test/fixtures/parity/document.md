@@ -2,11 +2,12 @@
 title: "Parity fixture"
 lang: es
 number-sections: true
+bibliography: sources.bib
 ---
 
 # Introducción
 
-Contar bien exige método. Texto con *cursiva*, **negrita** y una fórmula en línea
+Contar bien exige método [@rosen2019; @grimaldi1998]. Texto con *cursiva*, **negrita** y una fórmula en línea
 $P(n, r) = \frac{n!}{(n-r)!}$ dentro del párrafo.
 
 ## Fórmulas de bloque
@@ -30,3 +31,8 @@ $$
 
 1. Resolver cuatro problemas de conteo.
 2. Verificar cada resultado enumerando los casos.
+
+# Fuentes
+
+::: {#refs}
+:::

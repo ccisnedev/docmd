@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.7 — 2026-10-14
+
+### Fixed
+
+- **PDFs typeset by Typst imported as garbage or as nothing at all.** Typst
+  writes text in Type0/Identity-H fonts as literal strings of 2-byte codes with
+  octal escapes (`(\000\001)`). The content-stream reader passed escapes through
+  as their next character and decoded literal strings one byte per code, so the
+  text came out as raw codes. Literal strings now resolve every escape (`\ddd`,
+  `\n \r \t \b \f`, line continuations) and are split by the font's code width,
+  like hex strings.
+- **A TJ array was cut short by a `]` inside one of its strings** (glyph code
+  0x5D). Strings are now skipped whole while scanning arrays and inline
+  dictionaries.
+- **Lines and runs of a Typst PDF ran together.** Typst places each run with
+  the CTM (`cm`) and leaves `Tm` unchanged, so a vertical move of the CTM now
+  breaks the line and a horizontal one separates the runs with a space, unless
+  either side already carries it.
+- **Accented letters came out wrong in Typst PDFs** ("Intróducción"): Typst maps
+  a glyph to the first text it was used for and corrects later uses with a
+  marked-content `/ActualText`. The reader now prefers that text (UTF-16BE or
+  PDFDocEncoding) over the glyphs it encloses.
+
 ## 0.2.6 — 2026-10-14
 
 ### Fixed

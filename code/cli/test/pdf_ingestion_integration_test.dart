@@ -23,14 +23,14 @@ void main() {
 
     tearDown(() => dir.deleteSync(recursive: true));
 
-    Future<String> ingestFixture() async {
+    Future<String> ingestFixture([String name = 'sample.pdf']) async {
       final fixture = File(p.join(
         Directory.current.path,
         'test',
         'fixtures',
-        'sample.pdf',
+        name,
       ));
-      final source = File(p.join(dir.path, 'sample.pdf'))
+      final source = File(p.join(dir.path, name))
         ..writeAsBytesSync(fixture.readAsBytesSync());
       await PdfIngestionBackend()
           .ingest(source: source, format: 'pdf', layout: layout);
@@ -52,6 +52,19 @@ void main() {
     test('marks page provenance without inventing headings', () async {
       final markdown = await ingestFixture();
       expect(markdown, contains('<!-- page 1 -->'));
+    });
+
+    // Typst (and so docmd's own PDF render) emits Type0 fonts with
+    // Identity-H encoding. Its text came back as raw glyph-code hex.
+    test('recovers the text of a PDF typeset by Typst', () async {
+      final markdown = await ingestFixture('typst.pdf');
+
+      expect(markdown, contains('Introducción'));
+      expect(markdown, contains('Contar bien exige método.'));
+      expect(markdown, contains('añadir ñandú'));
+      expect(markdown, contains('1.1 Fórmulas'));
+      expect(markdown, contains('Figura 1: Triángulo de Pascal.'));
+      expect(markdown, isNot(contains('000001')));
     });
   });
 }

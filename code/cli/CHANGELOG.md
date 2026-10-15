@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 2026-10-14
+
+### Changed
+
+- **`setup` provisions Typst.** `setup pdf` and `setup all` now install pandoc
+  and Typst (winget `Typst.Typst`, `brew install typst`, and on Linux the snap
+  Typst's README recommends, since apt does not package it). LibreOffice is no
+  longer installed by default — it is only the PDF fallback — and stays
+  available as `setup libreoffice`; `setup typst` installs Typst alone.
+- `doctor` points a missing Typst at `docmd setup pdf` and a missing LibreOffice
+  at `docmd setup libreoffice`.
+
 ## 0.3.0 — 2026-10-14
 
 ### Changed

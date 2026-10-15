@@ -28,17 +28,19 @@ class InstallStep {
 }
 
 /// Tools required per capability. Import is pure Dart (pdf/pptx) or Pandoc
-/// (docx); the only tools to provision are Pandoc — for docx import and all
-/// render — and LibreOffice, for PDF render. No Python engines.
+/// (docx); the tools to provision are Pandoc — for docx import and all render —
+/// and Typst, for PDF render (ADR 0003). LibreOffice is only the PDF fallback,
+/// installed when named. No Python engines.
 ///
 /// Every individual tool is also a capability: the root help advertises the tool
 /// names, so the tool names have to be accepted, and naming one is how a user
 /// repairs exactly the thing `doctor` told them about.
 const Map<String, List<String>> _capabilityTools = {
   'docx': ['pandoc'],
-  'pdf': ['pandoc', 'libreoffice'],
-  'all': ['pandoc', 'libreoffice'],
+  'pdf': ['pandoc', 'typst'],
+  'all': ['pandoc', 'typst'],
   'pandoc': ['pandoc'],
+  'typst': ['typst'],
   'libreoffice': ['libreoffice'],
 };
 
@@ -55,12 +57,14 @@ List<InstallStep> buildSetupPlan({
   required String capability,
   bool hasPandoc = false,
   bool hasLibreOffice = false,
+  bool hasTypst = false,
   bool force = false,
 }) {
   final os = _normalizePlatform(platform);
   final present = {
     'pandoc': hasPandoc,
     'libreoffice': hasLibreOffice,
+    'typst': hasTypst,
   };
 
   final tools = _capabilityTools[capability] ?? const [];
@@ -83,10 +87,21 @@ InstallStep _stepFor(String tool, String os) {
         brewArgs: ['install', 'pandoc'],
         aptPackage: 'pandoc',
       );
+    case 'typst':
+      return _packageStep(
+        tool: 'typst',
+        description: 'Typesetter for PDF render',
+        os: os,
+        wingetId: 'Typst.Typst',
+        brewArgs: ['install', 'typst'],
+        // Not in apt on the common distributions; Typst's README points Linux
+        // at the snap.
+        linuxArgs: ['snap', 'install', 'typst'],
+      );
     case 'libreoffice':
       return _packageStep(
         tool: 'libreoffice',
-        description: 'Office suite for PDF render and pptx/xlsx conversion',
+        description: 'Office suite, the PDF render fallback without Typst',
         os: os,
         wingetId: 'TheDocumentFoundation.LibreOffice',
         brewArgs: ['install', '--cask', 'libreoffice'],
@@ -103,8 +118,10 @@ InstallStep _packageStep({
   required String os,
   required String wingetId,
   required List<String> brewArgs,
-  required String aptPackage,
+  String? aptPackage,
+  List<String>? linuxArgs,
 }) {
+  final linux = linuxArgs ?? ['apt-get', 'install', '-y', aptPackage!];
   switch (os) {
     case 'windows':
       return InstallStep(
@@ -127,8 +144,8 @@ InstallStep _packageStep({
         tool: tool,
         description: description,
         executable: 'sudo',
-        args: ['apt-get', 'install', '-y', aptPackage],
-        display: 'sudo apt-get install -y $aptPackage',
+        args: linux,
+        display: 'sudo ${linux.join(' ')}',
       );
   }
 }

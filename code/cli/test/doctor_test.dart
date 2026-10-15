@@ -100,7 +100,7 @@ void main() {
         expect(byName['render docx']!.status, equals(CliCheckStatus.warning));
         expect(byName['render pdf']!.status, equals(CliCheckStatus.warning));
         expect(byName['render pdf']!.message, contains('docmd setup docx'));
-        expect(byName['render pdf']!.message, contains('Install Typst'));
+        expect(byName['render pdf']!.message, contains('docmd setup pdf'));
         expect(byName['import pdf']!.status, equals(CliCheckStatus.ok));
       },
     );

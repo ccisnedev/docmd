@@ -64,7 +64,7 @@
           <a class="button button-secondary" href="https://marketplace.visualstudio.com/items?itemName=ccisnedev.docmd-vscode">VS Code Extension</a>
           <a class="button button-secondary" href="https://github.com/ccisnedev/docmd">GitHub</a>
         </div>
-        <p class="hero-meta"><b>Open source</b> · orchestrates <b>pandoc</b>, <b>LibreOffice</b>, <b>docling</b> &amp; <b>markitdown</b> · Python only for PDF</p>
+        <p class="hero-meta"><b>Open source</b> · orchestrates <b>pandoc</b>, <b>Typst</b>, <b>LibreOffice</b>, <b>docling</b> &amp; <b>markitdown</b> · Python only for PDF</p>
       </div>
 
       <div class="terminal" aria-hidden="true">
@@ -76,7 +76,7 @@
 <span class="p">$</span> docmd doctor
   import docx: <span class="ok">available</span> <span class="c">(pandoc)</span>
   import pdf:  <span class="ok">available</span> <span class="c">(docling)</span>
-  render pdf:  <span class="ok">available</span> <span class="c">(pandoc+libreoffice)</span>
+  render pdf:  <span class="ok">available</span> <span class="c">(pandoc+typst)</span>
 
 <span class="p">$</span> docmd bench ./corpus <span class="hl">--reference</span> docling
   docmd       12 docs  words 1.8k  tables 3.0  <span class="ok">recall 98%</span>
@@ -133,7 +133,7 @@
             </tbody>
           </table>
         </div>
-        <p class="matrix-note">Render (Markdown → X): <code>docx</code>, <code>pptx</code> via pandoc; <code>pdf</code> via pandoc → LibreOffice. PDF defaults to docling for its layout, table structure and OCR — markitdown stays the zero-friction fallback.</p>
+        <p class="matrix-note">Render (Markdown → X): <code>docx</code>, <code>pptx</code> via pandoc; <code>pdf</code> via pandoc → Typst (LibreOffice as fallback). PDF defaults to docling for its layout, table structure and OCR — markitdown stays the zero-friction fallback.</p>
       </div>
     </section>
 
@@ -163,7 +163,7 @@
           </article>
           <article class="cmd">
             <code><b>docmd setup</b> pdf <span class="amber">--apply</span></code>
-            <p>Provision the toolchain — pandoc &amp; LibreOffice via your package manager, docling &amp; markitdown via <code>uv</code>. Terraform-style <code>--plan</code> by default, <code>--apply</code> to execute.</p>
+            <p>Provision the toolchain — pandoc &amp; Typst via your package manager, docling &amp; markitdown via <code>uv</code>. Terraform-style <code>--plan</code> by default, <code>--apply</code> to execute.</p>
           </article>
           <article class="cmd">
             <code><b>docmd tui</b></code>

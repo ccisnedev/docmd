@@ -25,11 +25,35 @@ String extractTextFromContentStream(
   // y of the current text line, tracked so a drop to a new line becomes a
   // newline even in PDFs that position every line with an absolute Tm.
   double? lineY;
+  // Translation of the last `cm`. Typst places every run through the CTM and
+  // leaves Tm alone, so this is where its lines and word runs show up.
+  double? ctmX;
+  double? ctmY;
+  // A run placed apart on the same line: separate it from the previous one
+  // unless either side already carries the space.
+  var pendingSpace = false;
+  // Open marked-content sequences (BMC/BDC … EMC). While one carries an
+  // /ActualText, that text replaces whatever glyphs it encloses.
+  var markedDepth = 0;
+  int? actualTextDepth;
 
   void breakLine() {
+    pendingSpace = false;
     if (out.isNotEmpty && !out.toString().endsWith('\n')) {
       out.write('\n');
     }
+  }
+
+  void show(String text, {bool actual = false}) {
+    if (text.isEmpty || (actualTextDepth != null && !actual)) return;
+    if (pendingSpace &&
+        out.isNotEmpty &&
+        !_endsWithSpace(out.toString()) &&
+        !_isSpace(text.codeUnitAt(0))) {
+      out.write(' ');
+    }
+    pendingSpace = false;
+    out.write(text);
   }
 
   for (final token in _tokenize(content)) {
@@ -48,14 +72,43 @@ String extractTextFromContentStream(
       case 'Tj':
         final string = _lastString(operands);
         if (string != null) {
-          out.write(_decodeString(string, cmapFor(currentFont ?? '')));
+          show(_decodeString(string, cmapFor(currentFont ?? '')));
         }
       case 'TJ':
         final array = operands.lastWhere(
           (o) => o.type == _TokenType.array,
           orElse: () => _Token(_TokenType.array, ''),
         );
-        out.write(_decodeArray(array.text, cmapFor(currentFont ?? '')));
+        show(_decodeArray(array.text, cmapFor(currentFont ?? '')));
+      case 'BMC':
+        markedDepth++;
+      case 'BDC':
+        markedDepth++;
+        final properties = operands.lastWhere(
+          (o) => o.type == _TokenType.dict,
+          orElse: () => const _Token(_TokenType.dict, ''),
+        );
+        final actual = _actualText(properties.text);
+        if (actual != null && actualTextDepth == null) {
+          show(actual, actual: true);
+          actualTextDepth = markedDepth;
+        }
+      case 'EMC':
+        if (markedDepth == actualTextDepth) actualTextDepth = null;
+        if (markedDepth > 0) markedDepth--;
+      case 'cm':
+        final nums = _numbers(operands);
+        if (nums.length >= 6) {
+          final (x, y) = (nums[4], nums[5]);
+          final (previousX, previousY) = (ctmX, ctmY);
+          if (previousY != null && (previousY - y).abs() > _lineMoveThreshold) {
+            breakLine();
+          } else if (previousX != null &&
+              (previousX - x).abs() > _lineMoveThreshold) {
+            pendingSpace = true;
+          }
+          (ctmX, ctmY) = (x, y);
+        }
       case 'Tm':
         // a b c d e f — f is the y translation of the text line.
         final nums = _numbers(operands);
@@ -152,9 +205,25 @@ String _decodeGlyphHex(String hex, ToUnicodeCMap? cmap) {
   return buffer.toString();
 }
 
-/// Literal strings are byte codes. Map each through the CMap when present;
-/// otherwise fall back to the raw byte as a character (best effort).
+/// Literal strings are byte codes, grouped by the font's code width like hex
+/// strings (Typst writes 2-byte Identity-H codes as `(\000\001)`). A 1-byte
+/// code the CMap does not map falls back to the raw byte as a character (best
+/// effort); a wider one is dropped, as in [_decodeGlyphHex].
 String _decodeLiteral(String literal, ToUnicodeCMap? cmap) {
+  final width = cmap?.codeByteLength ?? 1;
+  if (width > 1) {
+    final bytes = literal.codeUnits;
+    final buffer = StringBuffer();
+    for (var i = 0; i + width <= bytes.length; i += width) {
+      var code = 0;
+      for (var j = 0; j < width; j++) {
+        code = (code << 8) | (bytes[i + j] & 0xFF);
+      }
+      final mapped = cmap![code];
+      if (mapped != null) buffer.write(mapped);
+    }
+    return buffer.toString();
+  }
   final buffer = StringBuffer();
   for (final code in literal.codeUnits) {
     final mapped = cmap?[code];
@@ -163,7 +232,7 @@ String _decodeLiteral(String literal, ToUnicodeCMap? cmap) {
   return buffer.toString();
 }
 
-enum _TokenType { name, number, hexString, literalString, array, op }
+enum _TokenType { name, number, hexString, literalString, array, dict, op }
 
 class _Token {
   final _TokenType type;
@@ -201,6 +270,34 @@ Iterable<_Token> _tokenize(String s) sync* {
       continue;
     }
 
+    // An inline dictionary (`<< … >>`), such as a BDC property list. Strings
+    // inside it may hold `>`, so they are skipped whole.
+    if (c == _lt && i + 1 < n && s.codeUnitAt(i + 1) == _lt) {
+      final start = i += 2;
+      var depth = 1;
+      while (i < n) {
+        final ch = s.codeUnitAt(i);
+        if (ch == _lparen) {
+          i = _readLiteral(s, i).$2;
+          continue;
+        }
+        if (ch == _lt && i + 1 < n && s.codeUnitAt(i + 1) == _lt) {
+          depth++;
+          i += 2;
+          continue;
+        }
+        if (ch == _gt && i + 1 < n && s.codeUnitAt(i + 1) == _gt) {
+          if (--depth == 0) break;
+          i += 2;
+          continue;
+        }
+        i++;
+      }
+      yield _Token(_TokenType.dict, s.substring(start, i.clamp(start, n)));
+      i += 2; // consume '>>'
+      continue;
+    }
+
     if (c == _lt) {
       final start = ++i;
       while (i < n && s.codeUnitAt(i) != _gt) {
@@ -213,28 +310,9 @@ Iterable<_Token> _tokenize(String s) sync* {
     }
 
     if (c == _lparen) {
-      i++;
-      final buffer = StringBuffer();
-      var depth = 1;
-      while (i < n && depth > 0) {
-        final ch = s.codeUnitAt(i);
-        if (ch == _backslash && i + 1 < n) {
-          buffer.writeCharCode(s.codeUnitAt(i + 1));
-          i += 2;
-          continue;
-        }
-        if (ch == _lparen) depth++;
-        if (ch == _rparen) {
-          depth--;
-          if (depth == 0) {
-            i++;
-            break;
-          }
-        }
-        buffer.writeCharCode(ch);
-        i++;
-      }
-      yield _Token(_TokenType.literalString, buffer.toString());
+      final (literal, end) = _readLiteral(s, i);
+      i = end;
+      yield _Token(_TokenType.literalString, literal);
       continue;
     }
 
@@ -243,6 +321,16 @@ Iterable<_Token> _tokenize(String s) sync* {
       var depth = 1;
       while (i < n && depth > 0) {
         final ch = s.codeUnitAt(i);
+        // A string may hold any byte, brackets included: skip it whole.
+        if (ch == _lparen) {
+          i = _readLiteral(s, i).$2;
+          continue;
+        }
+        if (ch == _lt) {
+          final close = s.indexOf('>', i);
+          i = close < 0 ? n : close + 1;
+          continue;
+        }
         if (ch == _lbracket) depth++;
         if (ch == _rbracket) depth--;
         if (depth == 0) break;
@@ -288,3 +376,93 @@ bool _isDelimiterOrSpace(int c) =>
     c == _rparen ||
     c == _lbracket ||
     c == _rbracket;
+
+/// Reads the literal string opening at `s[start]` (a `(`) and returns its
+/// bytes with escapes resolved, plus the index just past its closing `)`.
+/// Balanced parentheses nest; `\n \r \t \b \f \( \) \` and up to three octal
+/// digits are escapes; a backslash before a line break continues the line.
+(String, int) _readLiteral(String s, int start) {
+  final n = s.length;
+  final buffer = StringBuffer();
+  var i = start + 1;
+  var depth = 1;
+  while (i < n) {
+    final ch = s.codeUnitAt(i);
+    if (ch == _backslash && i + 1 < n) {
+      final next = s.codeUnitAt(i + 1);
+      i += 2;
+      if (next >= 0x30 && next <= 0x37) {
+        var value = next - 0x30;
+        for (var k = 0; k < 2 && i < n; k++) {
+          final d = s.codeUnitAt(i);
+          if (d < 0x30 || d > 0x37) break;
+          value = value * 8 + (d - 0x30);
+          i++;
+        }
+        buffer.writeCharCode(value & 0xFF);
+        continue;
+      }
+      if (next == 0x0D) {
+        if (i < n && s.codeUnitAt(i) == 0x0A) i++;
+        continue;
+      }
+      if (next == 0x0A) continue;
+      buffer.writeCharCode(_literalEscapes[next] ?? next);
+      continue;
+    }
+    if (ch == _lparen) depth++;
+    if (ch == _rparen && --depth == 0) {
+      return (buffer.toString(), i + 1);
+    }
+    buffer.writeCharCode(ch);
+    i++;
+  }
+  return (buffer.toString(), n);
+}
+
+const Map<int, int> _literalEscapes = {
+  0x6E: 0x0A, // \n
+  0x72: 0x0D, // \r
+  0x74: 0x09, // \t
+  0x62: 0x08, // \b
+  0x66: 0x0C, // \f
+};
+
+bool _isSpace(int c) => c == 0x20 || c == 0x0A || c == 0x09 || c == 0xA0;
+
+bool _endsWithSpace(String s) =>
+    s.isNotEmpty && _isSpace(s.codeUnitAt(s.length - 1));
+
+/// The /ActualText of a marked-content property list, or null when it has
+/// none. It is a PDF text string: UTF-16BE behind a FE FF mark, otherwise
+/// PDFDocEncoding, read here as Latin-1 (identical for the printable range).
+String? _actualText(String properties) {
+  final tokens = _tokenize(properties).toList();
+  for (var i = 0; i + 1 < tokens.length; i++) {
+    if (tokens[i].type != _TokenType.name || tokens[i].text != 'ActualText') {
+      continue;
+    }
+    final value = tokens[i + 1];
+    final List<int> bytes;
+    if (value.type == _TokenType.literalString) {
+      bytes = value.text.codeUnits;
+    } else if (value.type == _TokenType.hexString) {
+      final hex = value.text.length.isOdd ? '${value.text}0' : value.text;
+      bytes = [
+        for (var k = 0; k + 2 <= hex.length; k += 2)
+          int.parse(hex.substring(k, k + 2), radix: 16),
+      ];
+    } else {
+      return null;
+    }
+    if (bytes.length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
+      final units = <int>[
+        for (var k = 2; k + 1 < bytes.length; k += 2)
+          (bytes[k] << 8) | bytes[k + 1],
+      ];
+      return String.fromCharCodes(units);
+    }
+    return String.fromCharCodes(bytes);
+  }
+  return null;
+}

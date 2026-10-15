@@ -92,6 +92,74 @@ endbfchar
       expect(text.trim(), equals('H i'));
     });
 
+    // Typst shows 2-byte Identity-H codes as literal strings with octal and
+    // control escapes: glyph 1 is (\000\001), glyph 8 is (\000\b).
+    test('decodes 2-byte codes in a literal string through octal escapes', () {
+      const stream = r'BT /F1 12 Tf (\000\001\000\002) Tj ET';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      expect(text.trim(), equals('Hi'));
+    });
+
+    test('decodes the control escapes of a literal string', () {
+      // \b is byte 8: "d" in this CMap.
+      const stream = r'BT /F1 12 Tf [(\000\004\000\005\000\006\000\007\000\b)] TJ ET';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      expect(text.trim(), equals('World'));
+    });
+
+    // Glyph 0x5D is "]": a bracket inside a string must not end the TJ array.
+    test('keeps a TJ array whole when a string holds a bracket byte', () {
+      final brackets = ToUnicodeCMap.parse('''
+2 beginbfchar
+<005D> <0021>
+<0001> <0048>
+endbfchar
+''');
+      const stream = r'BT /F1 12 Tf [(\000\001) -50 (\000]) -50 (\000\001)] TJ ET';
+      final text = extractTextFromContentStream(stream, (_) => brackets);
+      expect(text.trim(), equals('H!H'));
+    });
+
+    // Typst positions every run with the CTM (`cm` inside q/Q) and leaves Tm
+    // at the same value, so lines and separate runs are only visible in `cm`.
+    test('breaks lines when the CTM moves to a new y', () {
+      const stream =
+          'q 1 0 0 -1 70 760 cm BT /F1 12 Tf 1 0 0 -1 0 0 Tm <0001> Tj ET Q '
+          'q 1 0 0 -1 70 745 cm BT /F1 12 Tf 1 0 0 -1 0 0 Tm <0002> Tj ET Q';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      final lines = text.trim().split('\n').where((l) => l.isNotEmpty).toList();
+      expect(lines, equals(['H', 'i']));
+    });
+
+    test('separates runs placed apart on the same line by the CTM', () {
+      // "i", then "Hi", then " W" (a run that already starts with a space
+      // glyph gets no extra one).
+      const stream = 'q 1 0 0 -1 70 760 cm BT /F1 12 Tf <0002> Tj ET Q '
+          'q 1 0 0 -1 83 760 cm BT /F1 12 Tf <00010002> Tj ET Q '
+          'q 1 0 0 -1 99 760 cm BT /F1 12 Tf <00030004> Tj ET Q';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      expect(text.trim(), equals('i Hi W'));
+    });
+
+    // Typst reuses a glyph whose ToUnicode says "ó" for a plain "o" and wraps
+    // that use in `/Span << /ActualText (o) >> BDC ... EMC`: the marked text,
+    // not the glyph's mapping, is what the run says.
+    test('prefers a marked-content ActualText over the glyph mapping', () {
+      const stream = 'BT /F1 12 Tf <0001> Tj '
+          '/Span << /ActualText (o) >> BDC <0002> Tj EMC '
+          '<0001> Tj ET';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      expect(text.trim(), equals('HoH'));
+    });
+
+    test('decodes a UTF-16BE ActualText and ignores spans without one', () {
+      // FE FF 00 F3 is "ó"; the outer span has only an MCID.
+      const stream = r'BT /F1 12 Tf /Span << /MCID 0 >> BDC <0001> Tj '
+          r'/Span << /ActualText (\376\377\000\363) >> BDC <0002> Tj EMC EMC ET';
+      final text = extractTextFromContentStream(stream, (n) => only('F1', n));
+      expect(text.trim(), equals('Hó'));
+    });
+
     test('returns empty text when there is no font to decode with', () {
       const stream = 'BT <0001> Tj ET';
       final text = extractTextFromContentStream(stream, (_) => null);

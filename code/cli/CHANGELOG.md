@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.3 — 2026-10-14
+
+### Fixed
+
+- **PDF import put a space before punctuation that follows a styled run**
+  ("Applications ." for an italic title and its period, "( Grimaldi, 1998 )"
+  around a linked citation). Typst sets those as separate runs flush against
+  each other, and 0.2.7 separated every run placed apart on a line. No space is
+  added now before closing punctuation (`. , ; : ! ? ) ] } % » ” ’`) or after
+  opening punctuation (`( [ { ¿ ¡ « “ ‘`).
+
 ## 0.3.2 — 2026-10-14
 
 ### Fixed

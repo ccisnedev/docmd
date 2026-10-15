@@ -163,7 +163,52 @@ void main() {
       }
     });
 
-    test('execute() renders package inputs to pdf through pandoc and libreoffice', () async {
+    // ADR 0003: with typst installed, pdf is a single pandoc call that hands
+    // the Typst source to typst. pandoc writes its temporary .typ in the
+    // working directory, so that must be a scratch directory, never the
+    // caller's (it may not be writable) nor the package.
+    test('execute() renders pdf through pandoc with the typst engine', () async {
+      final dir = Directory.systemTemp.createTempSync('docmd_render_typst_');
+      final file = File(p.join(dir.path, 'draft.md'))..writeAsStringSync('# Draft');
+
+      final calls = <(String, List<String>, String?)>[];
+
+      try {
+        final cmd = RenderCommand(
+          RenderInput(inputPath: file.path, format: 'pdf'),
+          typstLocator: () => '/usr/bin/typst',
+          processRunner: (exe, args, {workingDirectory}) async {
+            calls.add((exe, args, workingDirectory));
+            File(args[args.indexOf('-o') + 1])
+              ..createSync(recursive: true)
+              ..writeAsStringSync('pdf binary');
+            return ProcessResult(0, 0, '', '');
+          },
+        );
+        final output = await cmd.execute();
+
+        expect(calls, hasLength(1));
+        final (exe, args, workingDirectory) = calls.single;
+        expect(exe, equals('pandoc'));
+        expect(args, containsAllInOrder(['--pdf-engine', '/usr/bin/typst']));
+        // pandoc hands typst the media it extracted to the temp dir as a
+        // root-relative path (/Users/.../media-x/a.svg), which typst resolves
+        // against --root: that must be the temp dir's filesystem root.
+        final root = p.rootPrefix(Directory.systemTemp.absolute.path);
+        expect(args, contains('--pdf-engine-opt=--root=$root'));
+        expect(args[args.indexOf('-o') + 1], endsWith('draft.pdf'));
+        expect(workingDirectory, isNotNull);
+        expect(p.equals(workingDirectory!, dir.path), isFalse);
+        expect(Directory(workingDirectory).existsSync(), isFalse,
+            reason: 'the scratch directory is removed after the render');
+        expect(output.outputPath, endsWith('draft.pdf'));
+        expect(File(output.outputPath).existsSync(), isTrue);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('execute() falls back to pandoc and libreoffice for pdf without typst', () async {
       final dir = Directory.systemTemp.createTempSync('docmd_render_package_test_');
       final packageDir = Directory('${dir.path}/requirement.docmd')..createSync();
       Directory('${packageDir.path}/content').createSync(recursive: true);
@@ -176,6 +221,7 @@ void main() {
       try {
         final cmd = RenderCommand(
           RenderInput(inputPath: packageDir.path, format: 'pdf'),
+          typstLocator: () => null,
           processRunner: (exe, args, {workingDirectory}) async {
             calls.add(exe);
 

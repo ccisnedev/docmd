@@ -45,7 +45,7 @@ class RenderInput extends Input {
     return _formatForKind[DocmdPackageLayout(inputPath).kind] ?? 'docx';
   }
 
-  // docx and pptx are native pandoc writers; pdf is pandoc→LibreOffice. No
+  // docx and pptx are native pandoc writers; pdf is pandoc→Typst (LibreOffice as fallback). No
   // --xlsx: pandoc has no xlsx writer, so declaring it would only reject its
   // own use. It returns with a real renderer, not before.
   static final CliContract contract = CliContract(
@@ -126,9 +126,14 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
   @override
   final RenderInput input;
   final ProcessRunner _runProcess;
+  final String? Function() _locateTypst;
 
-  RenderCommand(this.input, {ProcessRunner? processRunner})
-    : _runProcess = processRunner ?? runProcess;
+  RenderCommand(
+    this.input, {
+    ProcessRunner? processRunner,
+    String? Function()? typstLocator,
+  }) : _runProcess = processRunner ?? runProcess,
+       _locateTypst = typstLocator ?? resolveTypstExecutable;
 
   @override
   String? validate() {
@@ -208,26 +213,32 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
     return p.join(parent, '$name.$format');
   }
 
-  /// Renders through a native pandoc writer (docx, pptx). The resource path lets
-  /// pandoc resolve the package's extracted media when embedding images.
+  /// Renders through a native pandoc writer (docx, pptx, typst). The resource
+  /// path lets pandoc resolve the package's extracted media when embedding
+  /// images. Paths are made absolute so a [workingDirectory] cannot change
+  /// what they point at.
   Future<void> _renderViaPandoc(
     String markdownSource,
     String outputPath, {
     required String to,
+    List<String> extraArgs = const [],
+    String? workingDirectory,
   }) async {
     Directory(p.dirname(outputPath)).createSync(recursive: true);
+    final source = p.absolute(markdownSource);
 
     final result = await _runProcess('pandoc', [
-      markdownSource,
+      source,
       '-f',
       'markdown',
       '-t',
       to,
+      ...extraArgs,
       '--resource-path',
-      _resourcePathFor(markdownSource),
+      _resourcePathFor(source),
       '-o',
-      outputPath,
-    ]);
+      p.absolute(outputPath),
+    ], workingDirectory: workingDirectory);
 
     if (result.exitCode != 0) {
       throw ProcessException(
@@ -239,7 +250,44 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
     }
   }
 
+  /// PDF through pandoc's Typst writer and typst (ADR 0003): both outputs then
+  /// come from the same pandoc AST. LibreOffice is the fallback when typst is
+  /// not installed.
   Future<void> _renderToPdf(String markdownSource, String outputPath) async {
+    final typst = _locateTypst();
+    if (typst == null) {
+      return _renderToPdfViaLibreOffice(markdownSource, outputPath);
+    }
+    // pandoc writes its intermediate .typ in the working directory, which may
+    // be read-only (a shell started in C:\) and is never the package's to
+    // litter: give it a scratch directory of its own.
+    final scratch = Directory.systemTemp.createTempSync('docmd_render_');
+    try {
+      await _renderViaPandoc(
+        markdownSource,
+        outputPath,
+        to: 'typst',
+        extraArgs: [
+          '--pdf-engine',
+          typst,
+          // pandoc extracts media to the temp dir and hands typst a
+          // root-relative path to it (/Users/.../media-x/a.svg); typst reads
+          // that against --root, which defaults to the working directory.
+          '--pdf-engine-opt=--root=${p.rootPrefix(scratch.absolute.path)}',
+        ],
+        workingDirectory: scratch.path,
+      );
+    } finally {
+      if (scratch.existsSync()) {
+        scratch.deleteSync(recursive: true);
+      }
+    }
+  }
+
+  Future<void> _renderToPdfViaLibreOffice(
+    String markdownSource,
+    String outputPath,
+  ) async {
     final tempDir = Directory.systemTemp.createTempSync('docmd_render_');
     final tempDocxPath = p.join(
       tempDir.path,

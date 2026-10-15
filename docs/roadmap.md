@@ -32,7 +32,7 @@ Import (X → md + images):
 | `pdf` | **docling** (default) / markitdown (light fallback) | **yes** |
 | images | markitdown / VLM captioning (optional) | optional |
 
-Render (md → X): `docx`, `pptx` → pandoc; `pdf` → pandoc → docx → LibreOffice;
+Render (md → X): `docx`, `pptx` → pandoc; `pdf` → pandoc → Typst (LibreOffice as fallback, ADR 0003);
 `xlsx` → ingest-only (render is degenerate for text+images). All native.
 
 **Python is scoped to PDF ingestion only.** All render, and docx/pptx/xlsx

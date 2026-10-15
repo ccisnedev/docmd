@@ -34,7 +34,7 @@ class SetupInput extends Input {
         required: true,
         description:
             'What to provision: a capability (all, pdf, docx) or a single tool '
-            '(pandoc, libreoffice). Default: all',
+            '(pandoc, typst, libreoffice). Default: all',
       ),
     ],
     options: [
@@ -156,6 +156,7 @@ class SetupCommand implements Query<SetupInput, SetupOutput> {
   final ProcessRunner _runProcess;
   final String? Function() _resolvePandoc;
   final String? Function() _resolveLibreOffice;
+  final String? Function() _resolveTypst;
 
   SetupCommand(
     this.input, {
@@ -163,11 +164,13 @@ class SetupCommand implements Query<SetupInput, SetupOutput> {
     ProcessRunner? processRunner,
     String? Function()? resolvePandoc,
     String? Function()? resolveLibreOffice,
+    String? Function()? resolveTypst,
   }) : _platform = platform ?? Platform.operatingSystem,
        _runProcess = processRunner ?? runProcess,
        _resolvePandoc = resolvePandoc ?? (() => resolvePandocExecutable()),
        _resolveLibreOffice =
-           resolveLibreOffice ?? (() => resolveLibreOfficeExecutable());
+           resolveLibreOffice ?? (() => resolveLibreOfficeExecutable()),
+       _resolveTypst = resolveTypst ?? (() => resolveTypstExecutable());
 
   @override
   String? validate() {
@@ -185,6 +188,7 @@ class SetupCommand implements Query<SetupInput, SetupOutput> {
       capability: input.capability,
       hasPandoc: _resolvePandoc() != null,
       hasLibreOffice: _resolveLibreOffice() != null,
+      hasTypst: _resolveTypst() != null,
       force: input.force,
     );
 

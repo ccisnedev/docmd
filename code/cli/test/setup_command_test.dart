@@ -21,6 +21,7 @@ void main() {
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: none,
+        resolveTypst: none,
         processRunner: (exe, args, {workingDirectory}) async {
           invocations += 1;
           return ProcessResult(0, 0, '', '');
@@ -43,6 +44,7 @@ void main() {
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: present,
+        resolveTypst: present,
         processRunner: (exe, args, {workingDirectory}) async {
           executed.add('$exe ${args.join(' ')}');
           return ProcessResult(0, 0, '', '');
@@ -64,6 +66,7 @@ void main() {
         platform: 'macos',
         resolvePandoc: present,
         resolveLibreOffice: present,
+        resolveTypst: present,
       );
 
       final output = await cmd.execute();
@@ -77,6 +80,7 @@ void main() {
         platform: 'linux',
         resolvePandoc: none,
         resolveLibreOffice: none,
+        resolveTypst: none,
         processRunner: (exe, args, {workingDirectory}) async =>
             ProcessResult(0, exe == 'sudo' ? 1 : 0, '', 'boom'),
       );

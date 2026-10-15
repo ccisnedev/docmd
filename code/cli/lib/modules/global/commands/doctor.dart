@@ -158,7 +158,7 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
   static const String _pandocHint =
       'Install Pandoc: `docmd setup docx` (https://pandoc.org/installing.html)';
   static const String _typstHint =
-      'Install Typst: https://github.com/typst/typst#installation';
+      'Install Typst: `docmd setup pdf` (https://github.com/typst/typst#installation)';
 
   Future<CliCheckResult> _checkPandoc() async {
     final path = _resolvePandocExecutable();
@@ -205,7 +205,7 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
         : const CliCheckResult(
             status: CliCheckStatus.error,
             message:
-                'libreoffice was not found. Install it: `docmd setup pdf` '
+                'libreoffice was not found. Install it: `docmd setup libreoffice` '
                 '(https://www.libreoffice.org/download)',
           );
   }

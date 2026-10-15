@@ -1,6 +1,7 @@
 ---
 title: "Parity fixture"
 lang: es
+number-sections: true
 ---
 
 # Introducción

@@ -8,6 +8,11 @@ import 'support/parity.dart';
 /// ADR 0003: docx and pdf need not look alike, but they must say the same
 /// thing. Each render feature adds the facts it guarantees to this list.
 const List<String> _facts = [
+  // Section numbering (front matter number-sections: true).
+  '1 Introducción',
+  '1.1 Fórmulas de bloque',
+  '1.2 Tablas',
+  '1.4 Listas',
   // Text and structure.
   'Introducción',
   'Contar bien exige método.',

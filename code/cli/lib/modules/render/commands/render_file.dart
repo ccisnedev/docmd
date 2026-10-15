@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../src/package_layout.dart';
 import '../../../src/process_runner.dart';
+import '../../../src/render/front_matter.dart';
 import '../../../src/tool_locator.dart';
 
 class RenderInput extends Input {
@@ -234,6 +235,7 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
       '-t',
       to,
       ...extraArgs,
+      ..._frontMatterArgs(source),
       '--resource-path',
       _resourcePathFor(source),
       '-o',
@@ -336,6 +338,15 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
         tempDir.deleteSync(recursive: true);
       }
     }
+  }
+
+  /// Writer options pandoc reads only from the command line, taken from the
+  /// source's front matter so every format gets the same ones (ADR 0003).
+  List<String> _frontMatterArgs(String markdownSource) {
+    final frontMatter = FrontMatter.parse(
+      File(markdownSource).readAsStringSync(),
+    );
+    return [if (frontMatter.flag('number-sections')) '--number-sections'];
   }
 
   String _resourcePathFor(String markdownSource) {

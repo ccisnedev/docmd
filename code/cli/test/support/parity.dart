@@ -56,7 +56,7 @@ String docxText(File docx) {
   );
   return xml
       .findAllElements('w:p')
-      .map((paragraph) => paragraph.findAllElements('w:t').map((t) => t.innerText).join())
+      .map(_paragraphText)
       .where((text) => text.trim().isNotEmpty)
       .join('\n');
 }
@@ -87,3 +87,15 @@ bool toolExists(String executable) {
   final lookup = Platform.isWindows ? 'where' : 'which';
   return Process.runSync(lookup, [executable]).exitCode == 0;
 }
+
+/// A paragraph's text in reading order: runs' text, with `w:tab` (pandoc puts
+/// one between a section number and its title) and `w:br` as whitespace.
+String _paragraphText(XmlElement paragraph) => paragraph.descendants
+    .whereType<XmlElement>()
+    .map((e) => switch (e.name.qualified) {
+          'w:t' => e.innerText,
+          'w:tab' => '\t',
+          'w:br' => '\n',
+          _ => '',
+        })
+    .join();

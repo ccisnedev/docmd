@@ -254,4 +254,42 @@ void main() {
       }
     });
   });
+
+  // pandoc reads number-sections only as an option; docmd takes it from the
+  // front matter so both writers number the same headings (ADR 0003).
+  group('front matter options', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('docmd_render_fm_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    Future<List<String>> pandocArgs(String markdown, String format) async {
+      final file = File(p.join(dir.path, 'doc.md'))..writeAsStringSync(markdown);
+      late List<String> captured;
+      await RenderCommand(
+        RenderInput(inputPath: file.path, format: format),
+        typstLocator: () => '/usr/bin/typst',
+        processRunner: (exe, args, {workingDirectory}) async {
+          if (exe == 'pandoc') captured = args;
+          File(args[args.indexOf('-o') + 1])
+            ..createSync(recursive: true)
+            ..writeAsStringSync('binary');
+          return ProcessResult(0, 0, '', '');
+        },
+      ).execute();
+      return captured;
+    }
+
+    test('number-sections: true numbers docx and pdf headings', () async {
+      const md = '---\nnumber-sections: true\n---\n\n# One\n';
+      expect(await pandocArgs(md, 'docx'), contains('--number-sections'));
+      expect(await pandocArgs(md, 'pdf'), contains('--number-sections'));
+    });
+
+    test('headings stay unnumbered without it', () async {
+      const md = '---\ntitle: x\n---\n\n# One\n';
+      expect(await pandocArgs(md, 'docx'), isNot(contains('--number-sections')));
+      expect(await pandocArgs('# One\n', 'pdf'), isNot(contains('--number-sections')));
+    });
+  });
 }

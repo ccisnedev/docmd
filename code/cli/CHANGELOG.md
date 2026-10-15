@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 — 2026-10-14
+
+### Fixed
+
+- **`number-sections: true` in the front matter was ignored.** pandoc reads it
+  only as a command-line option, so headings stayed unnumbered in every format.
+  `render` now reads the source's front matter and passes `--number-sections`
+  to pandoc for docx, pdf and pptx alike. The front matter is read line-wise
+  (top-level `key: value` scalars only), so the CLI still needs no YAML parser.
+
 ## 0.3.1 — 2026-10-14
 
 ### Changed

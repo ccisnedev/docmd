@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../src/package_layout.dart';
 import '../../../src/process_runner.dart';
+import '../../../src/render/crossref_filter.dart';
 import '../../../src/render/front_matter.dart';
 import '../../../src/tool_locator.dart';
 
@@ -227,20 +228,30 @@ class RenderCommand implements Query<RenderInput, RenderOutput> {
   }) async {
     Directory(p.dirname(outputPath)).createSync(recursive: true);
     final source = p.absolute(markdownSource);
+    final filters = Directory.systemTemp.createTempSync('docmd_filters_');
 
-    final result = await _runProcess('pandoc', [
-      source,
-      '-f',
-      'markdown',
-      '-t',
-      to,
-      ...extraArgs,
-      ..._frontMatterArgs(source),
-      '--resource-path',
-      _resourcePathFor(source),
-      '-o',
-      p.absolute(outputPath),
-    ], workingDirectory: workingDirectory);
+    final ProcessResult result;
+    try {
+      result = await _runProcess('pandoc', [
+        source,
+        '-f',
+        'markdown',
+        '-t',
+        to,
+        ...extraArgs,
+        // Before the front matter options: the filter resolves @fig/@tbl
+        // before citeproc reads them as citations.
+        '--lua-filter',
+        writeCrossrefFilter(filters).path,
+        ..._frontMatterArgs(source),
+        '--resource-path',
+        _resourcePathFor(source),
+        '-o',
+        p.absolute(outputPath),
+      ], workingDirectory: workingDirectory);
+    } finally {
+      filters.deleteSync(recursive: true);
+    }
 
     if (result.exitCode != 0) {
       throw ProcessException(

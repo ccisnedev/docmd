@@ -18,6 +18,8 @@ $$
 
 ## Tablas
 
+: Conceptos y notación. {#tbl:conceptos}
+
 | Concepto    | Notación        | En palabras                    |
 |:------------|:---------------:|:-------------------------------|
 | Permutación | $P(n,r)$        | Ordenaciones de r entre n.     |
@@ -25,7 +27,9 @@ $$
 
 ## Figuras
 
-![Triángulo de Pascal en SVG.](pascal.svg){width=40%}
+![Triángulo de Pascal en SVG.](pascal.svg){#fig:pascal width=40%}
+
+Ver @fig:pascal y @tbl:conceptos.
 
 ## Listas
 

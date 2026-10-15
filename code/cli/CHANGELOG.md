@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.5 — 2026-10-14
+
+### Added
+
+- **Numbered captions and cross-references, the same in docx and pdf.** A
+  pandoc Lua filter embedded in docmd (pandoc runs it with its own Lua; nothing
+  to install) numbers figure and table captions in document order
+  ("Figura 1: …", "Tabla 1: …"; Spanish when `lang` starts with `es`, English
+  otherwise) and turns `@fig:id` / `@tbl:id` into the same "Figura 1". Before,
+  the docx numbered nothing while Typst numbered on its own, and references
+  stayed raw. The filter owns the numbering: Typst's own figure numbering is
+  turned off so it does not print a second label. It runs before citeproc, so
+  `@fig:id` is never read as a missing citation, and an unknown reference
+  becomes "??" with a warning instead of a link to a missing label.
+
 ## 0.3.4 — 2026-10-14
 
 ### Fixed

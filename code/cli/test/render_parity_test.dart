@@ -23,6 +23,10 @@ const List<String> _facts = [
   'Triángulo de Pascal en SVG.',
   'Resolver cuatro problemas de conteo.',
   'Verificar cada resultado enumerando los casos.',
+  // Numbered captions and cross-references (embedded crossref filter).
+  'Tabla 1: Conceptos y notación.',
+  'Figura 1: Triángulo de Pascal en SVG.',
+  'Ver Figura 1 y Tabla 1.',
   // Citations and bibliography (front matter bibliography:).
   '(Rosen 2019; Grimaldi 1998)',
   'Rosen, Kenneth H. 2019. Discrete Mathematics and Its Applications.',
@@ -30,7 +34,13 @@ const List<String> _facts = [
 ];
 
 /// Raw source that must never reach a reader, in either output.
-const List<String> _absent = ['@rosen2019', '@grimaldi1998'];
+const List<String> _absent = [
+  '@rosen2019',
+  '@grimaldi1998',
+  'fig:pascal',
+  'tbl:conceptos',
+  'Figura 1: Figura 1',
+];
 
 final bool _hasTools = toolExists('pandoc') && toolExists('typst');
 

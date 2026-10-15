@@ -34,7 +34,7 @@ Use the extension from VS Code's Extension Development Host:
 3. Ensure the local toolchain is available:
 	- `dart` for the sibling CLI in `../cli`
 	- `pandoc` for DOCX import and DOCX export
-	- `soffice` or LibreOffice for PDF export
+	- `typst` for PDF export (or `soffice`/LibreOffice as a fallback)
 4. Run the `Run Extension` launch configuration with F5 from the repository root window.
 5. In the Extension Development Host, run `DocMD: Run Doctor` from the Command Palette.
 6. Run `DocMD: Import File`, choose a `.docx`, and wait for the editor webview to open.

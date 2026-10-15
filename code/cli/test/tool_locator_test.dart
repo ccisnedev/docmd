@@ -165,5 +165,33 @@ void main() {
         reason: 'soffice --version hangs on Windows; it must never be probed',
       );
     });
+
+    // Typst renders PDF (ADR 0003). It is a single static binary expected on
+    // PATH, whether installed by winget, brew, cargo or a release archive.
+    test('finds typst on PATH', () {
+      final resolved = resolveTypstExecutable(
+        deps: ToolLocatorDeps(
+          platform: 'windows',
+          fileExists: (path) => path == r'C:\Users\me\bin\typst.exe',
+          runSync: (executable, arguments) => executable == 'where'
+              ? ProcessResult(0, 0, 'C:\\Users\\me\\bin\\typst.exe\r\n', '')
+              : ProcessResult(0, 0, 'typst 0.14.2', ''),
+        ),
+      );
+
+      expect(resolved, equals(r'C:\Users\me\bin\typst.exe'));
+    });
+
+    test('returns null when typst is not installed', () {
+      final resolved = resolveTypstExecutable(
+        deps: ToolLocatorDeps(
+          platform: 'linux',
+          fileExists: (_) => false,
+          runSync: (_, _) => ProcessResult(0, 1, '', ''),
+        ),
+      );
+
+      expect(resolved, isNull);
+    });
   });
 }

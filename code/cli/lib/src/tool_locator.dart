@@ -82,6 +82,17 @@ String? resolveLibreOfficeExecutable({ToolLocatorDeps? deps}) {
 /// shim behind, and a stale shim on `PATH` shadows a working install.
 const List<String> _pythonToolProbe = ['--version'];
 
+/// Resolves `typst`, the PDF engine pandoc hands its Typst output to (ADR
+/// 0003). A single static binary, installed by winget, brew, cargo or a release
+/// archive, so it is expected on `PATH` rather than in a fixed install dir.
+String? resolveTypstExecutable({ToolLocatorDeps? deps}) {
+  final resolvedDeps = deps ?? ToolLocatorDeps();
+  return resolveExecutable(
+    _isWindowsPlatform(resolvedDeps.platform) ? 'typst.exe' : 'typst',
+    deps: resolvedDeps,
+  );
+}
+
 /// Resolves the `docling` PDF ingestion engine. Installed via `uv tool install
 /// docling`, so it is expected on `PATH` rather than in a fixed install dir.
 String? resolveDoclingExecutable({ToolLocatorDeps? deps}) {

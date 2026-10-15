@@ -15,6 +15,7 @@ void main() {
         resolvePandocExecutable: () => '/usr/bin/pandoc',
         resolveLibreOfficeExecutable: () =>
             r'C:\Program Files\LibreOffice\program\soffice.exe',
+        resolveTypstExecutable: () => null,
       );
 
       final checks = await _contributedChecks(plugin);
@@ -30,6 +31,7 @@ void main() {
       final plugin = DocmdDoctorChecksPlugin(
         resolvePandocExecutable: () => null,
         resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+        resolveTypstExecutable: () => null,
       );
 
       final checks = await _contributedChecks(plugin);
@@ -49,6 +51,7 @@ void main() {
         final plugin = DocmdDoctorChecksPlugin(
           resolvePandocExecutable: () => '/usr/bin/pandoc',
           resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+          resolveTypstExecutable: () => null,
         );
 
         final checks = await _contributedChecks(plugin);
@@ -86,6 +89,7 @@ void main() {
         final plugin = DocmdDoctorChecksPlugin(
           resolvePandocExecutable: () => null,
           resolveLibreOfficeExecutable: () => null,
+          resolveTypstExecutable: () => null,
         );
 
         final checks = await _contributedChecks(plugin);
@@ -96,7 +100,7 @@ void main() {
         expect(byName['render docx']!.status, equals(CliCheckStatus.warning));
         expect(byName['render pdf']!.status, equals(CliCheckStatus.warning));
         expect(byName['render pdf']!.message, contains('docmd setup docx'));
-        expect(byName['render pdf']!.message, contains('docmd setup pdf'));
+        expect(byName['render pdf']!.message, contains('Install Typst'));
         expect(byName['import pdf']!.status, equals(CliCheckStatus.ok));
       },
     );
@@ -110,6 +114,7 @@ void main() {
         final plugin = DocmdDoctorChecksPlugin(
           resolvePandocExecutable: () => '/usr/bin/pandoc',
           resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+          resolveTypstExecutable: () => null,
         );
 
         final checks = await _contributedChecks(plugin);
@@ -123,6 +128,67 @@ void main() {
         expect(byName['import xlsx']!.message, contains('planned'));
       },
     );
+
+    // ADR 0003: Typst renders PDF; LibreOffice is only the fallback.
+    group('with typst', () {
+      test('renders pdf through typst, without LibreOffice', () async {
+        final plugin = DocmdDoctorChecksPlugin(
+          resolvePandocExecutable: () => '/usr/bin/pandoc',
+          resolveLibreOfficeExecutable: () => null,
+          resolveTypstExecutable: () => '/usr/bin/typst',
+        );
+
+        final checks = await _contributedChecks(plugin);
+        final byName = {for (final c in checks) c.name: await c.run()};
+
+        expect(byName['render pdf']!.status, equals(CliCheckStatus.ok));
+        expect(
+          byName['render pdf']!.message,
+          contains('available (pandoc+typst)'),
+        );
+        expect(byName['typst']!.status, equals(CliCheckStatus.ok));
+        expect(byName['typst']!.message, contains('/usr/bin/typst'));
+        // Optional once typst is there: not an error.
+        expect(byName['libreoffice']!.status, equals(CliCheckStatus.ok));
+        expect(byName['libreoffice']!.message, contains('optional'));
+      });
+
+      test('warns when typst is missing and pdf falls back', () async {
+        final plugin = DocmdDoctorChecksPlugin(
+          resolvePandocExecutable: () => '/usr/bin/pandoc',
+          resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+          resolveTypstExecutable: () => null,
+        );
+
+        final checks = await _contributedChecks(plugin);
+        final byName = {for (final c in checks) c.name: await c.run()};
+
+        expect(byName['typst']!.status, equals(CliCheckStatus.warning));
+        expect(byName['typst']!.message, contains('LibreOffice'));
+        expect(
+          byName['render pdf']!.message,
+          contains('available (pandoc+libreoffice)'),
+        );
+      });
+
+      test(
+        'reports an error when neither typst nor LibreOffice is found',
+        () async {
+          final plugin = DocmdDoctorChecksPlugin(
+            resolvePandocExecutable: () => '/usr/bin/pandoc',
+            resolveLibreOfficeExecutable: () => null,
+            resolveTypstExecutable: () => null,
+          );
+
+          final checks = await _contributedChecks(plugin);
+          final byName = {for (final c in checks) c.name: await c.run()};
+
+          expect(byName['libreoffice']!.status, equals(CliCheckStatus.error));
+          expect(byName['render pdf']!.status, equals(CliCheckStatus.warning));
+          expect(byName['render pdf']!.message, contains('typst'));
+        },
+      );
+    });
 
     test(
       'declares its manifest id and requires the doctor extension point',
@@ -143,6 +209,7 @@ void main() {
                 DocmdDoctorChecksPlugin(
                   resolvePandocExecutable: () => '/usr/bin/pandoc',
                   resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+                  resolveTypstExecutable: () => '/usr/bin/typst',
                 ),
               );
 
@@ -174,6 +241,7 @@ void main() {
                 DocmdDoctorChecksPlugin(
                   resolvePandocExecutable: () => null,
                   resolveLibreOfficeExecutable: () => '/usr/bin/soffice',
+                  resolveTypstExecutable: () => null,
                 ),
               );
 

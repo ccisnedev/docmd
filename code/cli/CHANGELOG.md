@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.0 — 2026-10-14
+
+### Changed
+
+- **`render --pdf` goes through Typst** (ADR 0003). pandoc writes the document
+  with its Typst writer and hands it to `typst` (`--pdf-engine`), so the PDF and
+  the docx come from the same pandoc AST. The old path (pandoc → docx →
+  LibreOffice) lost content: an empty table of contents, the `&` of an
+  `aligned` block printed literally. It is still used when Typst is not
+  installed. pandoc runs in a scratch working directory (it writes its
+  intermediate `.typ` there) with typst's `--root` at the temp dir's filesystem
+  root, where pandoc extracts the media it hands to typst.
+- **`doctor` reports `typst`.** Missing, it is a warning (PDF falls back to
+  LibreOffice); `render pdf` names its engine (`pandoc+typst` or
+  `pandoc+libreoffice`); LibreOffice is reported as optional once Typst is
+  present, and is an error only when neither is installed.
+
+### Added
+
+- **A semantic parity test** (`test/render_parity_test.dart`): a fixture is
+  rendered to docx and to pdf with `render`, both are read back as text (the pdf
+  with docmd's own reader) and a list of facts must appear in both. Skipped when
+  pandoc or typst is missing.
+
 ## 0.2.7 — 2026-10-14
 
 ### Fixed

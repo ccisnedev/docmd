@@ -10,22 +10,26 @@ import '../../../src/ingestion/placeholder_backend.dart';
 import '../../../src/ingestion/pptx_backend.dart';
 import '../../../src/tool_locator.dart';
 
-/// Contributes docmd's own doctor checks (Pandoc and LibreOffice
+/// Contributes docmd's own doctor checks (Pandoc, Typst and LibreOffice
 /// availability, plus one check per import/render capability) to the `doctor.checks` extension point [DoctorPlugin]
 /// declares. `doctor` itself is owned entirely by `modular_cli_sdk`'s own
-/// [DoctorPlugin]; this plugin only adds the two checks that are specific to
+/// [DoctorPlugin]; this plugin only adds the checks that are specific to
 /// docmd's own import/render tooling.
 class DocmdDoctorChecksPlugin implements CliPlugin {
   DocmdDoctorChecksPlugin({
     String? Function()? resolvePandocExecutable,
     String? Function()? resolveLibreOfficeExecutable,
+    String? Function()? resolveTypstExecutable,
   }) : _resolvePandocExecutable =
            resolvePandocExecutable ?? resolvePandocExecutableDefault,
        _resolveLibreOfficeExecutable =
-           resolveLibreOfficeExecutable ?? resolveLibreOfficeExecutableDefault;
+           resolveLibreOfficeExecutable ?? resolveLibreOfficeExecutableDefault,
+       _resolveTypstExecutable =
+           resolveTypstExecutable ?? resolveTypstExecutableDefault;
 
   final String? Function() _resolvePandocExecutable;
   final String? Function() _resolveLibreOfficeExecutable;
+  final String? Function() _resolveTypstExecutable;
 
   @override
   CliPluginManifest get manifest => const CliPluginManifest(
@@ -41,6 +45,10 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
     host.contribute<CliDoctorCheck>(
       DoctorPlugin.extensionPoint,
       CliDoctorCheck(name: 'pandoc', run: _checkPandoc),
+    );
+    host.contribute<CliDoctorCheck>(
+      DoctorPlugin.extensionPoint,
+      CliDoctorCheck(name: 'typst', run: _checkTypst),
     );
     host.contribute<CliDoctorCheck>(
       DoctorPlugin.extensionPoint,
@@ -81,6 +89,7 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
     final libreOfficePath = _resolveLibreOfficeExecutable();
     final hasPandoc = pandocPath != null;
     final hasLibreOffice = libreOfficePath != null;
+    final hasTypst = _resolveTypstExecutable() != null;
 
     final String engine;
     final bool available;
@@ -93,13 +102,16 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
         hint = hasPandoc ? null : _pandocHint;
         fixableHere = true;
       case 'render pdf':
-        engine = 'pandoc+libreoffice';
-        available = hasPandoc && hasLibreOffice;
+        // Typst first (ADR 0003); LibreOffice only as the fallback.
+        engine = hasTypst || !hasLibreOffice
+            ? 'pandoc+typst'
+            : 'pandoc+libreoffice';
+        available = hasPandoc && (hasTypst || hasLibreOffice);
         hint = available
             ? null
             : [
                 if (!hasPandoc) _pandocHint,
-                if (!hasLibreOffice) _libreOfficeHint,
+                if (!hasTypst && !hasLibreOffice) _typstHint,
               ].join(' ');
         fixableHere = true;
       default:
@@ -145,9 +157,8 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
 
   static const String _pandocHint =
       'Install Pandoc: `docmd setup docx` (https://pandoc.org/installing.html)';
-  static const String _libreOfficeHint =
-      'Install LibreOffice: `docmd setup pdf` '
-      '(https://www.libreoffice.org/download)';
+  static const String _typstHint =
+      'Install Typst: https://github.com/typst/typst#installation';
 
   Future<CliCheckResult> _checkPandoc() async {
     final path = _resolvePandocExecutable();
@@ -164,8 +175,28 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
           );
   }
 
+  Future<CliCheckResult> _checkTypst() async {
+    final path = _resolveTypstExecutable();
+    return path != null
+        ? CliCheckResult(
+            status: CliCheckStatus.ok,
+            message: 'typst found at $path',
+          )
+        : const CliCheckResult(
+            status: CliCheckStatus.warning,
+            message:
+                'typst was not found; PDF falls back to LibreOffice. $_typstHint',
+          );
+  }
+
   Future<CliCheckResult> _checkLibreOffice() async {
     final path = _resolveLibreOfficeExecutable();
+    if (path == null && _resolveTypstExecutable() != null) {
+      return const CliCheckResult(
+        status: CliCheckStatus.ok,
+        message: 'libreoffice not installed (optional: typst renders PDF)',
+      );
+    }
     return path != null
         ? CliCheckResult(
             status: CliCheckStatus.ok,
@@ -183,3 +214,5 @@ class DocmdDoctorChecksPlugin implements CliPlugin {
 String? resolvePandocExecutableDefault() => resolvePandocExecutable();
 
 String? resolveLibreOfficeExecutableDefault() => resolveLibreOfficeExecutable();
+
+String? resolveTypstExecutableDefault() => resolveTypstExecutable();

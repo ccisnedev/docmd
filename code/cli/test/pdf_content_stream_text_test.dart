@@ -160,6 +160,27 @@ endbfchar
       expect(text.trim(), equals('Hó'));
     });
 
+    // An italic title followed by its period, or a parenthesis around a
+    // styled word, are separate runs set flush against each other: no space.
+    test('adds no space before closing or after opening punctuation', () {
+      final punctuation = ToUnicodeCMap.parse('''
+5 beginbfchar
+<0001> <0048>
+<0002> <0069>
+<0003> <002E>
+<0004> <0028>
+<0005> <0029>
+endbfchar
+''');
+      // "(" | "Hi" | ")." | "Hi": only the last run starts a new word.
+      const stream = 'q 1 0 0 -1 70 760 cm BT /F1 12 Tf <0004> Tj ET Q '
+          'q 1 0 0 -1 75 760 cm BT /F1 12 Tf <00010002> Tj ET Q '
+          'q 1 0 0 -1 86 760 cm BT /F1 12 Tf <00050003> Tj ET Q '
+          'q 1 0 0 -1 99 760 cm BT /F1 12 Tf <00010002> Tj ET Q';
+      final text = extractTextFromContentStream(stream, (_) => punctuation);
+      expect(text.trim(), equals('(Hi). Hi'));
+    });
+
     test('returns empty text when there is no font to decode with', () {
       const stream = 'BT <0001> Tj ET';
       final text = extractTextFromContentStream(stream, (_) => null);

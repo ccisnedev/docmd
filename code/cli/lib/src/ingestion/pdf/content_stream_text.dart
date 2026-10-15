@@ -46,11 +46,18 @@ String extractTextFromContentStream(
 
   void show(String text, {bool actual = false}) {
     if (text.isEmpty || (actualTextDepth != null && !actual)) return;
-    if (pendingSpace &&
-        out.isNotEmpty &&
-        !_endsWithSpace(out.toString()) &&
-        !_isSpace(text.codeUnitAt(0))) {
-      out.write(' ');
+    if (pendingSpace && out.isNotEmpty) {
+      final before = out.toString();
+      final last = before.codeUnitAt(before.length - 1);
+      final first = text.codeUnitAt(0);
+      // Runs set flush against punctuation (an italic title and its period,
+      // a styled word in parentheses) are not separate words.
+      if (!_isSpace(last) &&
+          !_isSpace(first) &&
+          !_opensFlush(last) &&
+          !_closesFlush(first)) {
+        out.write(' ');
+      }
     }
     pendingSpace = false;
     out.write(text);
@@ -430,9 +437,6 @@ const Map<int, int> _literalEscapes = {
 
 bool _isSpace(int c) => c == 0x20 || c == 0x0A || c == 0x09 || c == 0xA0;
 
-bool _endsWithSpace(String s) =>
-    s.isNotEmpty && _isSpace(s.codeUnitAt(s.length - 1));
-
 /// The /ActualText of a marked-content property list, or null when it has
 /// none. It is a PDF text string: UTF-16BE behind a FE FF mark, otherwise
 /// PDFDocEncoding, read here as Latin-1 (identical for the printable range).
@@ -466,3 +470,10 @@ String? _actualText(String properties) {
   }
   return null;
 }
+
+/// Punctuation a following run attaches to without a space: `(`, `[`, `{`,
+/// opening quotes, and Spanish `¿` `¡`.
+bool _opensFlush(int c) => '([{¿¡«“‘'.codeUnits.contains(c);
+
+/// Punctuation that attaches to the preceding run without a space.
+bool _closesFlush(int c) => '.,;:!?)]}%»”’'.codeUnits.contains(c);

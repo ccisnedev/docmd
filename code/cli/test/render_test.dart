@@ -298,6 +298,37 @@ void main() {
       expect(await pandocArgs(md, 'docx'), contains('--citeproc'));
     });
 
+    // The crossref filter must see @fig:x before citeproc reads it as a
+    // missing citation, and it must exist while pandoc runs.
+    test('runs the crossref filter before citeproc, for docx and pdf',
+        () async {
+      const md = '---\nbibliography: refs.bib\n---\n\nVer @fig:a.\n';
+      for (final format in ['docx', 'pdf']) {
+        final file = File(p.join(dir.path, 'doc.md'))..writeAsStringSync(md);
+        late List<String> args;
+        var filterExisted = false;
+        await RenderCommand(
+          RenderInput(inputPath: file.path, format: format),
+          typstLocator: () => '/usr/bin/typst',
+          processRunner: (exe, a, {workingDirectory}) async {
+            args = a;
+            filterExisted = File(a[a.indexOf('--lua-filter') + 1]).existsSync();
+            File(a[a.indexOf('-o') + 1])
+              ..createSync(recursive: true)
+              ..writeAsStringSync('binary');
+            return ProcessResult(0, 0, '', '');
+          },
+        ).execute();
+        expect(args, contains('--lua-filter'), reason: format);
+        expect(filterExisted, isTrue, reason: format);
+        expect(
+          args.indexOf('--lua-filter'),
+          lessThan(args.indexOf('--citeproc')),
+          reason: format,
+        );
+      }
+    });
+
     test('headings stay unnumbered without it', () async {
       const md = '---\ntitle: x\n---\n\n# One\n';
       expect(await pandocArgs(md, 'docx'), isNot(contains('--number-sections')));

@@ -18,7 +18,10 @@ docling) do not offer. DocMD borrows their extraction; it owns the loop.
 - **Tertiary — VS Code authoring.** Markdown editor + live preview + export today.
   A basic WYSIWYG is a possible future, deliberately out of scope for now.
 
-Visual-style fidelity is an explicit non-goal at this stage.
+Visual-style fidelity is an explicit non-goal at this stage. **Semantic parity is
+a goal** (ADR 0003): the docx and the pdf of one source need not look alike, but
+they must say the same thing — same text and structure, same numbering and
+cross-references, same citations and bibliography, nothing raw in either.
 
 ### Engine matrix — the idoneous tool per case
 
@@ -117,6 +120,38 @@ VS Code editor's blocked images and missing PPTX export. Still open:
   that looks like the source.
 - **Import reports no per-slide fidelity.** The summary counts media but says
   nothing about shapes it could not represent, so silent loss stays silent.
+
+### Render parity — docx and pdf, 2026-10-14 (ADR 0003)
+
+Driven by an academic report (citations, numbered sections, figures, tables,
+math) rendered to both formats. One PR per step, each test-first, guarded by
+`test/render_parity_test.dart`: a fixture rendered to both formats and read
+back as text (the pdf with docmd's own reader), with facts required of both
+and raw source forbidden in either.
+
+- [x] 0.2.7 / 0.3.3 — the PDF reader reads Typst output (Type0/Identity-H
+  literal strings, CTM positioning, `/ActualText`, punctuation between runs).
+- [x] 0.3.0 — `render --pdf` through pandoc's Typst writer; LibreOffice is the
+  fallback. `doctor` reports typst.
+- [x] 0.3.1 — `setup pdf` installs Typst.
+- [x] 0.3.2 — `number-sections` from the front matter.
+- [x] 0.3.4 — citeproc when the front matter declares a bibliography.
+- [x] 0.3.5 — numbered captions and `@fig`/`@tbl` references (embedded Lua
+  filter).
+
+Still open — semantic, so in scope:
+
+- **Custom-style divs** (`::: {custom-style="X"}`) are styled in docx only
+  through a reference doc and vanish in the pdf; a boxed "Answer" or "Note"
+  should at least read as a block in both.
+- **SVG in docx has no PNG fallback** without `rsvg-convert`; Word 365 shows it,
+  older Word, LibreOffice and Google Docs do not.
+- **pandoc ≥ 3.1.2** is required for the Typst writer; `doctor` does not check
+  the version yet.
+- **APA** needs a `csl:` file today; pandoc's default style is Chicago
+  author-date.
+
+Out of scope — visual: fonts, page layout, a docx template (`--reference-doc`).
 
 The version milestones below remain the feature-level plan, reframed by the
 direction above.

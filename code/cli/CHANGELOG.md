@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.4 — 2026-10-14
+
+### Fixed
+
+- **Citations stayed raw and the bibliography empty.** `render` never passed
+  `--citeproc`, so `[@key]` reached the docx as text. Worse, since 0.3.0 a PDF
+  with a bibliography failed outright: without citeproc pandoc's Typst writer
+  hands the citations to Typst with `#bibliography("refs.bib")`, which Typst
+  cannot find from pandoc's scratch directory. `render` now runs citeproc for
+  every format when the front matter declares `bibliography:` or
+  `references:`, so both outputs cite and list sources with the same CSL style
+  (pandoc's default, Chicago author-date, or the one named by `csl:`). The
+  bibliography file is found next to the source through `--resource-path`.
+- The front matter reader also knows keys whose value is a nested block
+  (`bibliography:` followed by a list).
+
 ## 0.3.3 — 2026-10-14
 
 ### Fixed

@@ -9,6 +9,7 @@ library;
 /// manifest's `kind`, so the CLI needs no YAML parser. Nested maps, lists and
 /// block scalars are skipped, which is all these options need.
 class FrontMatter {
+  /// Top-level keys; a key whose value is a nested block maps to ''.
   final Map<String, String> _raw;
 
   FrontMatter._(this._raw);
@@ -24,14 +25,17 @@ class FrontMatter {
       if (trimmed == '---' || trimmed == '...') {
         return FrontMatter._(raw);
       }
-      final match = _scalar.firstMatch(trimmed);
+      final match = _key.firstMatch(trimmed);
       if (match != null) {
-        raw[match.group(1)!] = match.group(2)!.trim();
+        raw[match.group(1)!] = (match.group(2) ?? '').trim();
       }
     }
     // No closing fence: not a metadata block.
     return FrontMatter._({});
   }
+
+  /// Whether [key] is set at the top level, as a scalar or a nested block.
+  bool has(String key) => _raw.containsKey(key);
 
   /// The value of [key] with surrounding quotes removed, or null.
   String? operator [](String key) {
@@ -52,8 +56,8 @@ class FrontMatter {
     return value;
   }
 
-  // `key: value` at column 0; the key is a plain YAML key, the value non-empty.
-  static final RegExp _scalar = RegExp(r'^([A-Za-z0-9_-]+):\s+(\S.*)$');
+  // `key: value` or a bare `key:` (a block follows) at column 0.
+  static final RegExp _key = RegExp(r'^([A-Za-z0-9_-]+):(?:\s+(\S.*))?$');
 
   static const Set<String> _true = {
     'true',

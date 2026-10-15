@@ -15,7 +15,7 @@ const List<String> _facts = [
   '1.4 Listas',
   // Text and structure.
   'Introducción',
-  'Contar bien exige método.',
+  'Contar bien exige método',
   'Fórmulas de bloque',
   'Tablas',
   'Permutación',
@@ -23,7 +23,14 @@ const List<String> _facts = [
   'Triángulo de Pascal en SVG.',
   'Resolver cuatro problemas de conteo.',
   'Verificar cada resultado enumerando los casos.',
+  // Citations and bibliography (front matter bibliography:).
+  '(Rosen 2019; Grimaldi 1998)',
+  'Rosen, Kenneth H. 2019. Discrete Mathematics and Its Applications.',
+  'Grimaldi, Ralph P. 1998. Discrete and Combinatorial Mathematics.',
 ];
+
+/// Raw source that must never reach a reader, in either output.
+const List<String> _absent = ['@rosen2019', '@grimaldi1998'];
 
 final bool _hasTools = toolExists('pandoc') && toolExists('typst');
 
@@ -45,6 +52,12 @@ void main() {
     for (final fact in _facts) {
       test('both carry "$fact"', () {
         expect(render.missing(fact), isEmpty);
+      });
+    }
+
+    for (final raw in _absent) {
+      test('neither carries "$raw"', () {
+        expect(render.containing(raw), isEmpty);
       });
     }
   }, skip: _hasTools ? false : 'needs pandoc and typst on PATH');

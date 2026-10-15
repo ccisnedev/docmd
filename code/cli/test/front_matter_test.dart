@@ -52,6 +52,17 @@ number-sections: true
       }
     });
 
+    // bibliography may be a scalar or a list; either way it is present.
+    test('knows which keys are present, whatever their value', () {
+      bool has(String yaml) =>
+          FrontMatter.parse('---\n$yaml---\n').has('bibliography');
+
+      expect(has('bibliography: a.bib\n'), isTrue);
+      expect(has('bibliography:\n  - a.bib\n  - b.bib\n'), isTrue);
+      expect(has('title: x\n'), isFalse);
+      expect(has('meta:\n  bibliography: a.bib\n'), isFalse);
+    });
+
     test('accepts CRLF line endings and a "..." terminator', () {
       final fm = FrontMatter.parse('---\r\nnumber-sections: true\r\n...\r\n');
       expect(fm.flag('number-sections'), isTrue);

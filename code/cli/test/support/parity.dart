@@ -41,6 +41,12 @@ class ParityRender {
     );
   }
 
+  /// The outputs in which [text] appears.
+  List<String> containing(String text) => [
+    if (normalize(docx).contains(normalize(text))) 'docx',
+    if (normalize(pdf).contains(normalize(text))) 'pdf',
+  ];
+
   /// Whether [fact] appears in both outputs, as a list of the ones missing it.
   List<String> missing(String fact) => [
     if (!normalize(docx).contains(normalize(fact))) 'docx',

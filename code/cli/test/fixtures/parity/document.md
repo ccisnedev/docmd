@@ -3,6 +3,18 @@ title: "Parity fixture"
 lang: es
 number-sections: true
 bibliography: sources.bib
+cover:
+  logo: logo.png
+  header: Escuela de Ingeniería
+  kind: Informe de avance
+  fields:
+    - Curso: Matemática Discreta
+    - Docente: Ana Pérez
+  people:
+    columns: [Alumno, Código]
+    rows:
+      - [Luis Soto, U2025001]
+  footer: Lima, 2026
 ---
 
 # Introducción

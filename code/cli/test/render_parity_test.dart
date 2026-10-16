@@ -31,6 +31,14 @@ const List<String> _facts = [
   '(Rosen 2019; Grimaldi 1998)',
   'Rosen, Kenneth H. 2019. Discrete Mathematics and Its Applications.',
   'Grimaldi, Ralph P. 1998. Discrete and Combinatorial Mathematics.',
+  // Cover page (front matter cover:), before the body.
+  'Escuela de Ingeniería',
+  'INFORME DE AVANCE',
+  'CURSO Matemática Discreta',
+  'DOCENTE Ana Pérez',
+  'ALUMNO CÓDIGO',
+  'Luis Soto U2025001',
+  'Lima, 2026',
 ];
 
 /// Raw source that must never reach a reader, in either output.
@@ -64,6 +72,17 @@ void main() {
         expect(render.missing(fact), isEmpty);
       });
     }
+
+    // The cover comes first and carries the title; pandoc's own title block
+    // would print it a second time.
+    test('the cover comes before the body and holds the only title', () {
+      for (final text in [render.docx, render.pdf]) {
+        final body = normalize(text);
+        expect(body, contains('Luis Soto'));
+        expect(body.indexOf('Luis Soto'), lessThan(body.indexOf('Introducción')));
+        expect('Parity fixture'.allMatches(body), hasLength(1));
+      }
+    });
 
     for (final raw in _absent) {
       test('neither carries "$raw"', () {

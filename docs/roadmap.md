@@ -140,6 +140,7 @@ and raw source forbidden in either.
   filter).
 - [x] 0.3.6 — long tables break across pages in the pdf instead of moving
   whole to the next one.
+- [x] 0.3.7 — a cover page from the front matter (`cover:`), the same in both.
 
 Still open — semantic, so in scope:
 

@@ -80,6 +80,8 @@ void main() {
     test('turns Typst figure numbering off', () {
       final typst = _render(dir, spanish, to: 'typst');
       expect(typst, contains('#set figure(numbering: none)'));
+      expect(typst,
+          contains('#show figure.where(kind: table): set block(breakable: true)'));
       expect(_render(dir, spanish, to: 'markdown'),
           isNot(contains('numbering')));
     });

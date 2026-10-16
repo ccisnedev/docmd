@@ -18,7 +18,8 @@ File writeCrossrefFilter(Directory dir) =>
 /// turned off so it does not print a second "Figura 1:". It must run before
 /// citeproc, which would otherwise read `@fig:id` as a missing citation; an
 /// unknown reference becomes "??" (and a warning) instead of a link to a
-/// missing label, which aborts a Typst render.
+/// missing label, which aborts a Typst render. For Typst it also lets a table
+/// figure break across pages.
 const String crossrefFilterLua = r'''
 local words = {
   es = { fig = 'Figura', tbl = 'Tabla' },
@@ -82,6 +83,10 @@ function Pandoc(doc)
 
   if FORMAT == 'typst' then
     doc.blocks:insert(1, pandoc.RawBlock('typst', '#set figure(numbering: none)'))
+    -- pandoc wraps a captioned table in a figure, and a Typst figure does
+    -- not break: a long table would move whole to the next page.
+    doc.blocks:insert(2, pandoc.RawBlock('typst',
+      '#show figure.where(kind: table): set block(breakable: true)'))
   end
   return doc
 end

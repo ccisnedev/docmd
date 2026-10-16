@@ -138,6 +138,8 @@ and raw source forbidden in either.
 - [x] 0.3.4 — citeproc when the front matter declares a bibliography.
 - [x] 0.3.5 — numbered captions and `@fig`/`@tbl` references (embedded Lua
   filter).
+- [x] 0.3.6 — long tables break across pages in the pdf instead of moving
+  whole to the next one.
 
 Still open — semantic, so in scope:
 

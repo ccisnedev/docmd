@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.6 — 2026-10-15
+
+### Fixed
+
+- **A long table left the page above it almost empty in the pdf.** pandoc's
+  Typst writer wraps a captioned table in a figure, and a Typst figure does not
+  break, so a table longer than the rest of the page moved whole to the next
+  one. Table figures now break across pages, with the header repeated.
+
 ## 0.3.5 — 2026-10-14
 
 ### Added

@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.7 — 2026-10-15
+
+### Added
+
+- **A cover page from the front matter, the same in docx and pdf.** A
+  `cover:` block in the front matter becomes the first page of both outputs:
+  logo, header lines, kind ("AVANCE DEL PROYECTO FINAL"), title, subtitle,
+  label/value fields, a table of people and footer lines, with an accent and a
+  primary color. An embedded Lua filter builds it — OpenXML for docx, where the
+  logo sits in pandoc's centered Title style and a page break ends the cover; a
+  page of its own for Typst, unnumbered, with the body counting from 1. The
+  cover holds the title, so pandoc's own title block is dropped instead of
+  printing it twice.
+
+  ```yaml
+  cover:
+    logo: assets/logo.png
+    header: Ingeniería de Software
+    kind: Avance del Proyecto Final (APF)
+    fields:
+      - Curso: Estadística Descriptiva y Probabilidades
+      - Docente: …
+    people:
+      columns: [Alumno, Código]
+      rows:
+        - [Ana Pérez, U2025001]
+    footer: 2026 - Ciclo 2 Agosto
+    colors: {accent: "#C8102E", primary: "#0F2537"}
+  ```
+
 ## 0.3.6 — 2026-10-15
 
 ### Fixed

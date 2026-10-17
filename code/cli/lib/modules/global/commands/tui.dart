@@ -48,16 +48,15 @@ class TuiOutput extends Output {
       '',
       'Markdown-first document runtime for developers and AI workflows.',
       '',
-      'Commands:',
-      '  version        Print CLI version',
-      '  doctor         Check local prerequisites',
-      '  import <input> Create a DocMD package scaffold from an external file',
-      '  render <input> Render canonical content to a shareable output format',
+      // The SDK's catalog is generated from the registered routes, so it
+      // cannot drift the way a hand-written list here did.
+      'Run `docmd --help` to see every command.',
     ];
     if (updateAvailable && latestVersion != null) {
       lines.add('');
       lines.add(
-        'Update available: v$version → v$latestVersion — run `docmd upgrade`',
+        'Update available: v$version → v$latestVersion — '
+        'run `docmd upgrade --apply`',
       );
     }
     return lines.join('\n');

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.8 — 2026-10-16
+
+### Changed
+
+- **modular_cli_sdk 0.8.3 → 0.11.0.** What a user sees:
+  - `docmd --version` prints the version (it was an unknown option).
+  - `docmd --help` prints the command catalog, with `Usage: docmd ...` lines,
+    instead of an empty `Usage:` line.
+  - An unknown command prints one hint line — `Run "docmd --help" to see
+    every command.` — instead of the whole catalog.
+- **The bare `docmd` summary points at `docmd --help`** instead of a
+  hand-written command list that had drifted (no `setup`, `bench`, `upgrade`
+  or `uninstall`).
+
+### Fixed
+
+- **The update notice says `docmd upgrade --apply`.** `upgrade` has no default
+  mode, so the `docmd upgrade` the notice suggested only printed its usage.
+- **`setup` names Typst** in its description; it has installed it since 0.3.1.
+
 ## 0.3.7 — 2026-10-15
 
 ### Added

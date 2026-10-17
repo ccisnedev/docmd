@@ -8,6 +8,6 @@ void buildSetupModule(ModuleBuilder m) {
     (req) => SetupCommand(SetupInput.fromCliRequest(req)),
     globals: true,
     contract: SetupInput.contract,
-    description: 'Install the tools DocMD needs (pandoc, LibreOffice)',
+    description: 'Install the tools DocMD needs (pandoc, Typst, LibreOffice)',
   );
 }

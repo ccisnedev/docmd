@@ -33,7 +33,22 @@ void main() {
       final text = output.toText();
       expect(text, contains('Update available'));
       expect(text, contains('9.9.9'));
-      expect(text, contains('docmd upgrade'));
+      // `upgrade` has no default mode: without --apply it only prints its
+      // usage, so the hint must carry the flag.
+      expect(text, contains('docmd upgrade --apply'));
+    });
+
+    // The summary used to carry a hand-written command list that missed
+    // setup, bench, upgrade and uninstall; it points at the catalog instead.
+    test('points at the catalog instead of listing commands', () async {
+      final output = await TuiCommand(
+        TuiInput(),
+        versionChecker: ({required currentVersion}) async =>
+            const VersionCheckResult(updateAvailable: false),
+      ).execute();
+
+      expect(output.toText(), contains('docmd --help'));
+      expect(output.toText(), isNot(contains('Commands:')));
     });
 
     // A version check reaches the network; it must never delay or break the
